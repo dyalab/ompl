@@ -30,6 +30,15 @@ if (OMPL_EXTENSION_TRIANGLE)
     list(APPEND OMPL_LINK_LIBRARIES "${TRIANGLE_LIBRARY}")
 endif()
 
+if (OMPL_EXTENSION_SDCL)
+    file(GLOB_RECURSE OMPL_SDCL_EXTENSION_SOURCE_CODE extensions/SDCL/*.cpp)
+    file(GLOB_RECURSE OMPL_SDCL_EXTENSION_HEADERS extensions/SDCL/*.h)
+    set(OMPL_SOURCE_CODE ${OMPL_SOURCE_CODE} ${OMPL_SDCL_EXTENSION_SOURCE_CODE})
+    set(OMPL_HEADERS ${OMPL_HEADERS} ${OMPL_SDCL_EXTENSION_HEADERS})
+    list(APPEND OMPL_LINK_LIBRARIES "${NLOPT_LIBRARY}")
+    list(APPEND OMPL_LINK_LIBRARIES "${THUNDERSVM_LIBRARY}")
+endif()
+
 source_group("OMPL Source" FILES "${OMPL_SOURCE_CODE}")
 source_group("OMPL Headers" FILES "${OMPL_HEADERS}")
 
@@ -49,6 +58,11 @@ target_link_libraries(ompl
 
 if (OMPL_HAVE_SPOT)
     target_link_libraries(ompl ${SPOT_LIBRARIES})
+endif()
+
+if (OMPL_EXTENSION_SDCL)
+    target_link_libraries(ompl ${THUNDERSVM_LIBRARIES})
+    target_link_libraries(ompl ${NLOPT_LIBRARIES})
 endif()
 
 if (MSVC)

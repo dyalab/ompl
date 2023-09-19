@@ -60,4 +60,10 @@
 /** \brief Whether Numpy and Boost.Numpy are installed */
 #cmakedefine01 OMPL_HAVE_NUMPY
 
+/** \brief Whether ThunderSVM is installed */
+#cmakedefine01 OMPL_HAVE_THUNDERSVM
+
+/** \brief Whether NLopt is installed */
+#cmakedefine01 OMPL_HAVE_NLOPT
+
 #endif

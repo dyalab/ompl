@@ -159,6 +159,34 @@ if(PYTHON_FOUND AND NOT Boost_VERSION_STRING VERSION_LESS "1.63.0")
     endif()
 endif()
 
+set_package_properties(thundersvm PROPERTIES
+    URL "https://github.com/Xtra-Computing/thundersvm.git"
+    PURPOSE "If detetected, ThunderSVM can be used for manifold training in SDCL sampler.")
+# ThunderSVM is used to train manifold in SDCL sampler
+find_package(thundersvm)
+if (THUNDERSVM_FOUND)
+    set(OMPL_HAVE_THUNDERSVM 1)
+    include_directories(SYSTEM "${THUNDERSVM_INCLUDE_DIRS}")
+    link_directories(${THUNDERSVM_LIBRARY_DIRS})
+endif()
+
+set_package_properties(nlopt PROPERTIES
+    URL "https://github.com/stevengj/nlopt.git"
+    PURPOSE "If detetected, NLopt can be used for solving nonlinear optimization problems in SDCL sampler.")
+# nlopt is used to solve optimization problems in SDCL sampler
+
+find_package(nlopt)
+if (NLOPT_FOUND)
+    set(OMPL_HAVE_NLOPT 1)
+    include_directories(SYSTEM "${NLOPT_INCLUDE_DIRS}")
+    link_directories(${NLOPT_LIBRARY_DIRS})
+endif()
+
+set(OMPL_EXTENSION_SDCL 0)
+if (NLOPT_FOUND AND THUNDERSVM_FOUND)
+    set(OMPL_EXTENSION_SDCL 1)
+endif()
+
 # R is needed for running Planner Arena locally
 find_program(R_EXEC R)
 

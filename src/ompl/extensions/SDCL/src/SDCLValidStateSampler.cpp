@@ -35,7 +35,19 @@
 /* Author: Ioan Sucan */
 
 #include "ompl/extensions/SDCL/SDCLValidStateSampler.h"
-#include "ompl/base/SpaceInformation.h"
+
+namespace ompl
+{
+    namespace magic
+    {
+        /** \brief smallest training size to start training. */
+        static const unsigned int MIN_TRAINING_SIZE = 50;
+
+        /** \brief margin outside of configuration space boundaries to space extent fraction.*/
+        static const double MARGIN_AS_SPACE_EXTENT_FRACTION = 0.02;
+
+    }  // namespace magic
+}  // namespace ompl
 
 double objfunc(unsigned int n, const double *x, double *grad, void *data)
 {
@@ -100,11 +112,32 @@ ompl::base::SDCLValidStateSampler::SDCLValidStateSampler(const SpaceInformation 
   : ValidStateSampler(si)
   , sampler_(si->allocStateSampler())
   , planner_(planner)
+  , size_of_smallest_training_set_(magic::MIN_TRAINING_SIZE)
+  , delta_(si->getMaximumExtent() * magic::MARGIN_AS_SPACE_EXTENT_FRACTION) 
   , upper_bound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high)
   , lower_bound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low)
 {
     name_ = "SDCL";
     SDCLPoints_.reset(new pvec());
+    virtualCfreePoints_.reset(new pvec());
+    params_.declareParam<unsigned int>("size_of_smallest_training_set",
+                                 [this](unsigned int size)
+                                 {
+                                     setSizeSmallestTrainingSet(size);
+                                 },
+                                 [this]
+                                 {
+                                     return getSizeSmallestTrainingSet();
+                                 });
+    params_.declareParam<double>("virtual_C_margin",
+                                 [this](double m)
+                                 {
+                                     setVirtualCMargin(m);
+                                 },
+                                 [this]
+                                 {
+                                     return getVirtualCMargin();
+                                 });
 }
 
 ompl::base::SDCLValidStateSampler::~SDCLValidStateSampler()
@@ -116,9 +149,13 @@ bool ompl::base::SDCLValidStateSampler::sample(State *state)
 {
     unsigned int attempts = 0;
     bool valid = false;
-    if (samplingCount_ < 50) {  // TODO: make a magic number
-        samplingCount_++;
+
+    // start sdcl sampling thread if not already started. 
+    if (!sdclThreadStarted_) {
+        SDCLThread_ = std::thread(&ompl::base::SDCLValidStateSampler::generateSDCLSamples, this);
+        while(!sdclThreadStarted_) continue; // wait until sdcl thread started. 
     }
+
     do
     {
         // use SDCL points when available, if not, use uniform sampling
@@ -132,8 +169,8 @@ bool ompl::base::SDCLValidStateSampler::sample(State *state)
             SDCLPointsMutex_.unlock();
             usedSDCLPointsCount_++;
         } else {
-            sampler_->sampleUniform(state);
-            valid = si_->isValid(state);
+            sampleUniformWithMargin(state);
+            valid = isValidWithMargin(state);
             if (!valid) saveCollisionPoints(state);
         }
         ++attempts;
@@ -154,36 +191,73 @@ bool ompl::base::SDCLValidStateSampler::sampleNear(State *state, const State *ne
     return valid;
 }
 
-void ompl::base::SDCLValidStateSampler::startSDCLThread() 
-{
-    SDCLThread_ = std::thread(&ompl::base::SDCLValidStateSampler::generateSDCLSamples, this);
-}
-
 void ompl::base::SDCLValidStateSampler::endSDCLThread() 
 {
-    if (started_) {
-        terminated_ = true;
+    if (sdclThreadStarted_) {
+        sdclThreadEnded_ = true;
+        sdclThreadStarted_= false;
         SDCLThread_.join();
+        // OMPL_INFORM("SDCL sampling thread ended. ");
     }
 }
 
-void ompl::base::SDCLValidStateSampler::generateSDCLSamples() 
+void ompl::base::SDCLValidStateSampler::sampleUniformWithMargin(State *state)
+{    
+    const unsigned int dim = si_->getStateDimension();
+
+    auto *rstate = static_cast<RealVectorStateSpace::StateType *>(state);
+    for (unsigned int i = 0; i < dim; ++i)  // sample with virtual C regions
+        rstate->values[i] = rng_.uniformReal(lower_bound_[i] - delta_ * 2, upper_bound_[i] + delta_ * 2);
+}
+
+bool ompl::base::SDCLValidStateSampler::outOfBound(State *state)
 {
-    while (!planner_->isSetup()) continue; 
+    // return 0 is inbound, return 1 if in virtual collision region, return 2 if in virtual free region
+    const unsigned int dim = si_->getStateDimension();
+    auto *rstate = static_cast<RealVectorStateSpace::StateType *>(state);
+    // check whether the state is in virtual C free region.
+    for (unsigned int i = 0; i < dim; i++) {
+        if (rstate->values[i] < lower_bound_[i] - delta_ || rstate->values[i] > upper_bound_[i] + delta_) {
+            // in virtual Cfree region
+            saveVirtualCfreePoints(state);
+            return true;
+        } else if (rstate->values[i] < lower_bound_[i] || rstate->values[i] > upper_bound_[i]) {
+            // in virtual collision region
+            saveCollisionPoints(state);
+            return true;
+        }
+    }
 
-    while (samplingCount_  < 50) continue;
+    return false;
+}
 
-    started_ = true;
+bool ompl::base::SDCLValidStateSampler::isValidWithMargin(State *state)
+{
+    if (!outOfBound(state)) return si_->isValid(state);
+    
+    return false;
+}
+
+void ompl::base::SDCLValidStateSampler::generateSDCLSamples() 
+{   
+    sdclThreadStarted_ = true;
+
+    OMPL_INFORM("SDCL sampling thread started ");
     
     trainingSetup();
 
-    while (!terminated_)  // TODO: while planner is still running
+    while (!sdclThreadEnded_)
     {
+        if (planner_ == NULL) continue;
+        if (!planner_->isSetup()) continue; // wait unil the planner is setup.
+
         makeTrainingDataFromGraph();
+        
+        // wait until there is a reasonable number of samples.
+        if (numOneClassPoints_ == 0 || numOtherClassPoints_ == 0 || 
+            numOneClassPoints_ + numOtherClassPoints_ < size_of_smallest_training_set_) continue;
 
-        if (numOneClassPoints_ == 0 || numOtherClassPoints_ == 0) continue;
-
-        // train RBF-kernel SVM with thunderSVM, TODO: add use of libsvm if do not have cuda
+        // train RBF-kernel SVM with thunderSVM.
         model_->train(dataset_, param_);
         
         saveModelData();
@@ -219,13 +293,27 @@ void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph()
     PlannerDataPtr plannerData(std::make_shared<PlannerData>(planner_->getSpaceInformation()));
     planner_->getPlannerData(*plannerData);
     unsigned int data_size = plannerData->numVertices();
+
+    
+    // need a copy of the virtual cfree points for read and write conflicts.
+    std::shared_ptr<pvec> virtualCP_copy;
+    virtualCP_copy.reset(new pvec());
+    // avoid segfault when no virtual cfree points are added.
+    if (!virtualCfreePoints_) virtualCfreePoints_.reset(new pvec()); 
+    virtualCfreePointsMutex_.lock();
+    unsigned int virtual_free_data_size = virtualCfreePoints_->size();
+    for (unsigned int i = 0; i < virtual_free_data_size; i++) {
+        virtualCP_copy->push_back((*virtualCfreePoints_)[i]); 
+    }
+    virtualCfreePointsMutex_.unlock();
+
     unsigned int start_size = plannerData->numStartVertices();
     unsigned int goal_size = plannerData->numGoalVertices ();
     int features = si_->getStateDimension();
-    float* classes = new float[data_size];
-    float* data = new float[data_size * features];
+    float* classes = new float[data_size+virtual_free_data_size];
+    float* data = new float[(data_size+virtual_free_data_size) * features];
     
-    freePoints_.reset(new pvec(data_size, pt(features, 0.0)));
+    freePoints_.reset(new pvec(data_size+virtual_free_data_size, pt(features, 0.0))); // for sampling on the manifold
     numOneClassPoints_ = 0;
     numOtherClassPoints_ = 0;
     std::vector<int> start_tags;
@@ -290,7 +378,19 @@ void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph()
             numOtherClassPoints_++;
         }
     }
-    dataset_.load_from_dense(data_size, features, data, classes);
+    
+    // sample in virtual Cfree regions and add to training set. 
+    for (unsigned int i = 0; i < virtual_free_data_size; i++, cur_index++) {
+        for (int j = 0; j < features; j++)
+        {
+            data[features * cur_index + j] = (float)(*virtualCP_copy)[i][j];
+            (*freePoints_)[cur_index][j] = (double)(*virtualCP_copy)[i][j];
+        }
+        classes[cur_index] = 1;
+        numOtherClassPoints_++;
+    }
+
+    dataset_.load_from_dense(data_size+virtual_free_data_size, features, data, classes);
 
     delete [] data;
     delete [] classes;
@@ -308,6 +408,20 @@ void ompl::base::SDCLValidStateSampler::saveCollisionPoints(base::State *workSta
     collisionPointsMutex_.lock();
     collisionPoints_->push_back(point);
     collisionPointsMutex_.unlock();
+}
+
+void ompl::base::SDCLValidStateSampler::saveVirtualCfreePoints(base::State *workState) 
+{
+    if (!virtualCfreePoints_) virtualCfreePoints_.reset(new pvec());
+
+    const unsigned int dim = si_->getStateDimension();
+    pt point(dim);
+    for (unsigned int i = 0; i < dim; i++) {
+        point[i] = (double)workState->as<base::RealVectorStateSpace::StateType>()->values[i];
+    }
+    virtualCfreePointsMutex_.lock();
+    virtualCfreePoints_->push_back(point);
+    virtualCfreePointsMutex_.unlock();
 }
 
 
@@ -377,7 +491,6 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     // loop to add thread pool
     for (int i = 0; i < num_collision_points; i++) {
         boost::asio::post(threadpool, [collision_copy, i, this]{calManifoldPoints((*collision_copy)[i]);});
-        // calManifoldPoints((*collision_copy)[i]);
     }
     for (int i = 0; i < num_free_points; i++) {
         boost::asio::post(threadpool, [&, i, this]{calManifoldPoints((*freePoints_)[i]);});
@@ -387,13 +500,6 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
 
     // OMPL_INFORM("There are %d collision points, %d training points", num_collision_points, num_free_points);
 }
-
-// void ompl::base::SDCLValidStateSampler::save2dPoints(pt point, std::ostream& output) {
-//     for (int ii = 0; ii < point.size(); ii++) {
-//         output << point[ii] << " ";
-//     }
-//     output << std::endl; 
-// }
 
 void ompl::base::SDCLValidStateSampler::calManifoldPoints(const pt intput_point){
     const unsigned int dim = si_->getStateDimension();

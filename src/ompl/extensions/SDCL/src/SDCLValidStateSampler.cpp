@@ -62,10 +62,9 @@ double objfunc(unsigned int n, const double *x, double *grad, void *data)
                 grad[i] += coef[k] * exp(-gamma * dists_square[k]) * (-gamma) * 2 * (x[i] - vectors[n*k+i]);
             }
         }
-    }
-
-    for(unsigned int i = 0; i < n; i++) {
-        grad[i] = 2 * (f-b) * grad[i];
+        for(unsigned int i = 0; i < n; i++) {
+            grad[i] = 2 * (f-b) * grad[i];
+        }
     }
 
     return (f-b)*(f-b);
@@ -93,7 +92,7 @@ int findClosestPoint(double *res, int n, ModelData svm_data, std::vector<double>
     double minf;
     int result = nlopt_optimize(opt, res, &minf);
     nlopt_destroy(opt);
-    // double nul[1];
+    double nul[1];
     return result;
 }
 
@@ -105,18 +104,21 @@ ompl::base::SDCLValidStateSampler::SDCLValidStateSampler(const SpaceInformation 
   , lower_bound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low)
 {
     name_ = "SDCL";
-    // planner_ = planner;
-    // lower_bound_ = (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low;
-    // upper_bound_ = (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high
-
-    // setup a seperate thread for generating narrow passage samples. 
-    std::thread infThread([this] {generateSDCLSamples(); });
+    SDCLPoints_.reset(new pvec());
 }
+
+ompl::base::SDCLValidStateSampler::~SDCLValidStateSampler()
+{
+    endSDCLThread();
+} 
 
 bool ompl::base::SDCLValidStateSampler::sample(State *state)
 {
     unsigned int attempts = 0;
     bool valid = false;
+    if (samplingCount_ < 50) {  // TODO: make a magic number
+        samplingCount_++;
+    }
     do
     {
         // use SDCL points when available, if not, use uniform sampling
@@ -124,8 +126,10 @@ bool ompl::base::SDCLValidStateSampler::sample(State *state)
             valid = true;
             const unsigned int dim = si_->getStateDimension();
             auto *rstate = static_cast<RealVectorStateSpace::StateType *>(state);
+            SDCLPointsMutex_.lock();
             for (unsigned int i = 0; i < dim; ++i)
                 rstate->values[i] = (*SDCLPoints_)[usedSDCLPointsCount_][i];
+            SDCLPointsMutex_.unlock();
             usedSDCLPointsCount_++;
         } else {
             sampler_->sampleUniform(state);
@@ -150,20 +154,40 @@ bool ompl::base::SDCLValidStateSampler::sampleNear(State *state, const State *ne
     return valid;
 }
 
+void ompl::base::SDCLValidStateSampler::startSDCLThread() 
+{
+    SDCLThread_ = std::thread(&ompl::base::SDCLValidStateSampler::generateSDCLSamples, this);
+}
+
+void ompl::base::SDCLValidStateSampler::endSDCLThread() 
+{
+    if (started_) {
+        terminated_ = true;
+        SDCLThread_.join();
+    }
+}
+
 void ompl::base::SDCLValidStateSampler::generateSDCLSamples() 
 {
+    while (!planner_->isSetup()) continue; 
+
+    while (samplingCount_  < 50) continue;
+
+    started_ = true;
+    
     trainingSetup();
 
-    while (true)  // TODO: while planner is still running
+    while (!terminated_)  // TODO: while planner is still running
     {
         makeTrainingDataFromGraph();
 
         if (numOneClassPoints_ == 0 || numOtherClassPoints_ == 0) continue;
 
-        // train RBF-kernel SVM with thunderSVM
+        // train RBF-kernel SVM with thunderSVM, TODO: add use of libsvm if do not have cuda
         model_->train(dataset_, param_);
+        
         saveModelData();
-
+        
         // sample manifold points
         sampleManifoldPoints();
     }
@@ -192,12 +216,11 @@ void ompl::base::SDCLValidStateSampler::trainingSetup()
 
 void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph() 
 {
-    PlannerDataPtr plannerData;
+    PlannerDataPtr plannerData(std::make_shared<PlannerData>(planner_->getSpaceInformation()));
     planner_->getPlannerData(*plannerData);
-
     unsigned int data_size = plannerData->numVertices();
-    unsigned int start_size = plannerData->numVertices();
-    unsigned int goal_size = plannerData->numVertices();
+    unsigned int start_size = plannerData->numStartVertices();
+    unsigned int goal_size = plannerData->numGoalVertices ();
     int features = si_->getStateDimension();
     float* classes = new float[data_size];
     float* data = new float[data_size * features];
@@ -215,14 +238,14 @@ void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph()
 
     for (unsigned int i = 0; i < start_size; i++) {
         start_tags.push_back(plannerData->getStartVertex(i).getTag());
-        PlannerDataPtr subGraph;
+        PlannerDataPtr subGraph(std::make_shared<PlannerData>(planner_->getSpaceInformation()));
         plannerData->extractReachable(plannerData->getStartIndex(i), *subGraph);
         n_start_region_points += subGraph->numVertices();
     }
 
     for (unsigned int i = 0; i < goal_size; i++) {
         goal_tags.push_back(plannerData->getGoalVertex(i).getTag());
-        PlannerDataPtr subGraph;
+        PlannerDataPtr subGraph(std::make_shared<PlannerData>(planner_->getSpaceInformation()));
         plannerData->extractReachable(plannerData->getGoalIndex(i), *subGraph);
         n_goal_region_points += subGraph->numVertices();
     }
@@ -267,10 +290,7 @@ void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph()
             numOtherClassPoints_++;
         }
     }
-    
     dataset_.load_from_dense(data_size, features, data, classes);
-
-    OMPL_INFORM("Number of one class points is %d, number of other class points is %d", numOneClassPoints_, numOtherClassPoints_);
 
     delete [] data;
     delete [] classes;
@@ -291,7 +311,7 @@ void ompl::base::SDCLValidStateSampler::saveCollisionPoints(base::State *workSta
 }
 
 
-double ompl::base::SDCLValidStateSampler::evaluate(double* point) {
+double ompl::base::SDCLValidStateSampler::evaluate(const double* point) {
     if (savedModelData_.num_vectors == 0) saveModelData();
 
     double f = 0;
@@ -336,45 +356,55 @@ void ompl::base::SDCLValidStateSampler::saveModelData() {
 void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
 {
     // need a copy of the collision points for read and write conflicts.
-    pvec collision_copy;
+    std::shared_ptr<pvec> collision_copy;
+    collision_copy.reset(new pvec());
     // avoid segfault when no collision points are added.
     if (!collisionPoints_) collisionPoints_.reset(new pvec()); 
     collisionPointsMutex_.lock();
     int num_collision_points = collisionPoints_->size();
-    copy(collisionPoints_->begin(), collisionPoints_->end(), back_inserter(collision_copy));
+    for (int i = 0; i < num_collision_points; i++) {
+        collision_copy->push_back((*collisionPoints_)[i]);
+    }
     collisionPointsMutex_.unlock();
 
     int num_free_points = freePoints_->size();
     
     // start thread pool
     int num_threads = std::thread::hardware_concurrency();
-    OMPL_INFORM("Thread pool for calculating manifold points has %d threads.", num_threads);
+    // OMPL_INFORM("Thread pool for calculating manifold points has %d threads.", num_threads);
     boost::asio::thread_pool threadpool(num_threads);
     
     // loop to add thread pool
     for (int i = 0; i < num_collision_points; i++) {
-        boost::asio::post(threadpool, [&, this]{calManifoldPoints(collision_copy[i]);});
+        boost::asio::post(threadpool, [collision_copy, i, this]{calManifoldPoints((*collision_copy)[i]);});
+        // calManifoldPoints((*collision_copy)[i]);
     }
-
     for (int i = 0; i < num_free_points; i++) {
-        boost::asio::post(threadpool, [&, this]{calManifoldPoints((*freePoints_)[i]);});
+        boost::asio::post(threadpool, [&, i, this]{calManifoldPoints((*freePoints_)[i]);});
     }
 
     threadpool.join();
 
-    OMPL_INFORM("There are %d collision points, %d training points", num_collision_points, num_free_points);
+    // OMPL_INFORM("There are %d collision points, %d training points", num_collision_points, num_free_points);
 }
 
-void ompl::base::SDCLValidStateSampler::calManifoldPoints(pt intput_point){
+// void ompl::base::SDCLValidStateSampler::save2dPoints(pt point, std::ostream& output) {
+//     for (int ii = 0; ii < point.size(); ii++) {
+//         output << point[ii] << " ";
+//     }
+//     output << std::endl; 
+// }
+
+void ompl::base::SDCLValidStateSampler::calManifoldPoints(const pt intput_point){
     const unsigned int dim = si_->getStateDimension();
     double res_data[dim] = {};
+
     for (unsigned int ii = 0; ii < dim; ii++) {
         res_data[ii] = intput_point[ii];
     }
 
     // opt to find closest point on manifold
     int success = findClosestPoint(res_data, dim, savedModelData_, lower_bound_, upper_bound_);
-
     double svm_value = evaluate(res_data);
     base::State *res_state = si_->allocState();
     auto *rstate = static_cast<base::RealVectorStateSpace::StateType *>(res_state);

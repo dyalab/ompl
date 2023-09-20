@@ -89,11 +89,21 @@ namespace ompl
             /** \brief Constructor, base sampler is uniform sampling, TODO: add option to use Gaussian sampling in the future. */
             SDCLValidStateSampler(const SpaceInformation *si, const PlannerPtr planner);
 
-            ~SDCLValidStateSampler() override = default;
+            ~SDCLValidStateSampler();
 
             bool sample(State *state) override;
             bool sampleNear(State *state, const State *near, double distance) override;
 
+            /** \brief use SDCL proof manifold to generate samples for planning */
+            void generateSDCLSamples();
+            
+            /** \brief start the SDCL thread */
+            void startSDCLThread();
+
+            /** \brief end the SDCL thread */
+            void endSDCLThread();
+            
+            /** \brief return the number of manifold points added to search */
             unsigned int numSDCLSamplesAdded()
             {
                 return usedSDCLPointsCount_;
@@ -111,6 +121,15 @@ namespace ompl
             /** \brief The planner to get training data */
             PlannerPtr planner_;
 
+            /** \brief the sdcl thread */
+            std::thread SDCLThread_;
+
+            /** \brief mark termination of the sdcl thread */
+            std::atomic<bool> terminated_{false};
+
+            /** \brief mark start of the sdcl thread */
+            std::atomic<bool> started_{false};
+
             /** \brief The sampler to build upon */
             std::shared_ptr<pvec> SDCLPoints_;
 
@@ -122,6 +141,9 @@ namespace ompl
 
             /** \brief count of used valid SDCL points*/
             std::atomic<unsigned int> usedSDCLPointsCount_{0};
+
+            /** \brief counts the number of times the sampler has been called.*/
+            std::atomic<unsigned int> samplingCount_{0};
             
             /** \brief svm model related data, TODO: use the ompl::base::Constraint class? */
             DataSet dataset_;
@@ -131,6 +153,8 @@ namespace ompl
 
             /** \brief collision points, saved when sampling, used in sampleManifoldPoints*/
             std::shared_ptr<pvec> collisionPoints_;
+
+            void save2dPoints(pt point, std::ostream& output);
 
             /** \brief C free points, saved when getting training data, used in sampleManifoldPoints*/
             std::shared_ptr<pvec> freePoints_; 
@@ -155,9 +179,6 @@ namespace ompl
             int numOneClassPoints_{0};
             int numOtherClassPoints_{0};
 
-            /** \brief use SDCL proof manifold to generate samples for planning */
-            void generateSDCLSamples();
-
             /** \brief make training data set from graph disjoint set*/
             void makeTrainingDataFromGraph();
 
@@ -171,10 +192,10 @@ namespace ompl
             void saveCollisionPoints(base::State *workState);
 
             /** \brief calculate manifold points */
-            void calManifoldPoints(pt intput_point);
+            void calManifoldPoints(const pt intput_point);
 
             /** \brief calcualte the value of the manifold function with given point */
-            double evaluate(double* point);
+            double evaluate(const double* point);
 
             /** \brief save model data to data structure */
             void saveModelData();

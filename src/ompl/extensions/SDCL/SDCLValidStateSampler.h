@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2023, Colorado School of Mines
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Rice University nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2023, Colorado School of Mines
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Rice University nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Sihui Li */
 
@@ -60,8 +60,10 @@
 #include <thread>
 #include <nlopt.h>
 
-struct ModelData{
-    ModelData(){
+struct ModelData
+{
+    ModelData()
+    {
         b = 0;
         num_vectors = 0;
         gamma = 0;
@@ -71,8 +73,8 @@ struct ModelData{
     double b;
     int num_vectors;
     double gamma;
-    double* coef;
-    double* vectors;
+    double *coef;
+    double *vectors;
 };
 
 double objfunc(unsigned n, const double *x, double *grad, void *data);
@@ -82,13 +84,14 @@ namespace ompl
 {
     namespace base
     {
-        /** \brief A state sampler that only samples valid states, detail method is in the 
-         * paper "Sample-Driven Connectivity Learning for Motion Planning 
+        /** \brief A state sampler that only samples valid states, detail method is in the
+         * paper "Sample-Driven Connectivity Learning for Motion Planning
          * in Narrow Passages". */
         class SDCLValidStateSampler : public ValidStateSampler
         {
         public:
-            /** \brief Constructor, base sampler is uniform sampling, TODO: add option to use Gaussian sampling in the future. */
+            /** \brief Constructor, base sampler is uniform sampling, TODO: add option to use Gaussian sampling in the
+             * future. */
             SDCLValidStateSampler(const SpaceInformation *si, const PlannerPtr planner);
 
             ~SDCLValidStateSampler() override;
@@ -101,7 +104,7 @@ namespace ompl
 
             /** \brief end the SDCL thread */
             void endSDCLThread();
-            
+
             /** \brief return the number of manifold points added to search */
             unsigned int numSDCLSamplesAdded()
             {
@@ -133,8 +136,8 @@ namespace ompl
             }
 
         protected:
-            using pt =  std::vector<double>;
-    
+            using pt = std::vector<double>;
+
             /** @brief A data structure for storing vector of points in SDCL part */
             using pvec = std::vector<std::vector<double>>;
 
@@ -167,7 +170,7 @@ namespace ompl
 
             /** \brief counts the number of times the sampler has been called.*/
             std::atomic<unsigned int> samplingCount_{0};
-            
+
             /** \brief the size of the smallest allow training set size.*/
             unsigned int size_of_smallest_training_set_;
 
@@ -176,7 +179,7 @@ namespace ompl
 
             /** \brief An instance of a random number generator */
             RNG rng_;
-            
+
             /** \brief svm model related data, TODO: use the ompl::base::Constraint class? */
             DataSet dataset_;
             SvmParam param_;
@@ -187,7 +190,7 @@ namespace ompl
             std::shared_ptr<pvec> collisionPoints_;
 
             /** \brief C free points, saved when getting training data, used in sampleManifoldPoints*/
-            std::shared_ptr<pvec> freePoints_; 
+            std::shared_ptr<pvec> freePoints_;
 
             /** \brief virtual C free points, saved when sampling, used for training*/
             std::shared_ptr<pvec> virtualCfreePoints_;
@@ -234,21 +237,22 @@ namespace ompl
             void calManifoldPoints(const pt intput_point);
 
             /** \brief calcualte the value of the manifold function with given point */
-            double evaluate(const double* point);
+            double evaluate(const double *point);
 
             /** \brief save model data to data structure */
             void saveModelData();
 
             /** \brief whether state is within margin and valid */
             bool isValidWithMargin(State *state);
-            
-            /** \brief save out of bound state to collision points set or free points set. Return true if out of bound, false otherwise */
+
+            /** \brief save out of bound state to collision points set or free points set. Return true if out of bound,
+             * false otherwise */
             bool outOfBound(State *state);
 
             /** \brief sample uniformly with virtual obstacle region and virutal free region */
             void sampleUniformWithMargin(State *state);
         };
-    }
-}
+    }  // namespace base
+}  // namespace ompl
 
 #endif

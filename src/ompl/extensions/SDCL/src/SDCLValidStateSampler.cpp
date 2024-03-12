@@ -32,7 +32,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Ioan Sucan */
+/* Author: Sihui Li */
 
 #include "ompl/extensions/SDCL/SDCLValidStateSampler.h"
 

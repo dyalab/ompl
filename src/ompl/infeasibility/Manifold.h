@@ -40,27 +40,31 @@
 #define OMPL_INFEASIBILITY_MANIFOLD
 
 #include <ompl/infeasibility/basic.h>
+#include <ompl/base/State.h>
+#include "ompl/base/PlannerData.h"
+#include "ompl/base/Planner.h"
 
 #include <string>
 
 namespace ompl
 {
-    namespace multilevel
+    namespace infeasibility
     {
         class Manifold
         {
         public:
             Manifold(std::string name, std::size_t amb_d, std::size_t cod_d_ = 1);
-            Manifold(const Manifold& source) : name_(source.name_), amb_d_(source.amb_d_), cod_d_(source.cod_d_) {};
-            std::size_t amb_d() const {return amb_d;};
-            std::size_t cod_d() const {return cod_d;};
-            virtual float_inf evalManifold(const base::State* point);
-            virtual void learnManifold(PlannerDataPtr plannerData); // use sampled planner data to learn a manifold.
-            virtual void sampleManifold(const base::State* seed, base::State* res);
-        private:
+            // virtual Manifold(const Manifold& source);
+            std::size_t amb_d() const {return amb_d_;};
+            std::size_t cod_d() const {return cod_d_;};
+            std::string name() const {return name_;};
+            virtual float_inf evalManifold(const base::State* point) = 0;
+            virtual bool learnManifold(const base::PlannerDataPtr& plannerData) = 0; // use sampled planner data to learn a manifold.
+            virtual bool sampleManifold(const base::State* seed, base::State* res) = 0;
+        protected:
+            std::string name_;
             std::size_t amb_d_;
             std::size_t cod_d_;
-            std::string name_;
         };
     }
 }

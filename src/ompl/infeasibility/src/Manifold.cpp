@@ -38,7 +38,7 @@
 
 #include <ompl/infeasibility/Manifold.h>
 
-ompl::infeasibility::Manifold::Manifold(std::string name, std::size_t amb_d, std::size_t cod_d_)
+ompl::infeasibility::Manifold::Manifold(std::string name, std::size_t amb_d, std::size_t cod_d)
  : name_(std::move(name))
  , amb_d_(amb_d)
  , cod_d_(cod_d)

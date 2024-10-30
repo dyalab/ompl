@@ -36,10 +36,15 @@
 
 /* Author: Sihui Li */
 
-#ifndef OMPL_INFEASIBILITY_MANIFOLD
-#define OMPL_INFEASIBILITY_MANIFOLD
+#ifndef OMPL_INFEASIBILITY_SVMMANIFOLD
+#define OMPL_INFEASIBILITY_SVMMANIFOLD
 
 #include <ompl/infeasibility/Manifold.h>
+#include <ompl/infeasibility/basic.h>
+#include "ompl/base/PlannerData.h"
+#include <ompl/base/State.h>
+#include "ompl/base/spaces/RealVectorStateSpace.h"
+#include "ompl/base/SpaceInformation.h"
 
 #include <thundersvm/model/svc.h>
 #include <thundersvm/svmparam.h>
@@ -78,23 +83,42 @@ namespace ompl
             float_inf* vectors;
         };
 
-        class SVMManifold : public Manifold
-        {
+        class SVMManifold : public ompl::infeasibility::Manifold {
         public:
-            SVMManifold(std::string name, std::size_t amb_d, std::size_t cod_d_ = 1);
-            SVMManifold(const SVMManifold& source) : Manifold(source), ModelData_(source.getModelData())
-            std::size_t amb_d() const {return amb_d;};
-            std::size_t cod_d() const {return cod_d;};
+            SVMManifold(base::SpaceInformationPtr si, std::string name, std::size_t amb_d, std::size_t cod_d_ = 1);
+            SVMManifold(const SVMManifold& source)
+             : Manifold(source.name(), source.amb_d(), source.cod_d()), 
+             si_(source.getSpaceInformation()),
+             modelData_(source.getModelData()) {};
             float_inf evalManifold(const base::State* point) override;
-            void learnManifold(PlannerDataPtr plannerData) override;
-            void sampleManifold(const base::State* seed, base::State* res) override;
-            void setModelData(std::shared_ptr<SvmModel> model);
-            SVMModelData getModelData() {return ModelData_;};
+            bool learnManifold(const base::PlannerDataPtr& plannerData) override;
+            bool sampleManifold(const base::State* seed, base::State* res) override;
+            // void setModelData(std::shared_ptr<SvmModel> model);
+            SVMModelData getModelData() const {return modelData_;};
+
+            /** \brief Get the space information this manifold is using */
+            const base::SpaceInformationPtr getSpaceInformation() const {return si_;};
+
+            /** \brief make training data set from graph disjoint set*/
+            void makeTrainingDataFromGraph(const base::PlannerDataPtr& plannerData);
+
+            /** \brief Setup training parameters */
+            void trainingSetup();
+
+            /** \brief save model data to data structure */
+            void saveModelData();
+
+            std::shared_ptr<std::vector<base::State *>> getFreePoints() {return freePoints_;}; 
+            void clearStates(std::shared_ptr<std::vector<base::State *>> statelist);
+
         private:
-            SVMModelData ModelData_;
+            base::SpaceInformationPtr si_;
+
+            SVMModelData modelData_;
             DataSet dataset_;
             SvmParam param_;
             std::shared_ptr<SvmModel> model_;
+            std::shared_ptr<std::vector<base::State *>> freePoints_; // points on manifold
 
             /** \brief the size of the smallest allow training set size.*/
             unsigned int size_of_smallest_training_set_;
@@ -102,15 +126,6 @@ namespace ompl
             /** \brief count the number of goal and start points. */
             unsigned int numOneClassPoints_{0};
             unsigned int numOtherClassPoints_{0};
-
-            /** \brief make training data set from graph disjoint set*/
-            void makeTrainingDataFromGraph();
-
-            /** \brief Setup training parameters */
-            void trainingSetup();
-
-            /** \brief save model data to data structure */
-            void saveModelData();
         };
     }
 }

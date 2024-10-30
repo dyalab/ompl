@@ -163,9 +163,11 @@ set_package_properties(thundersvm PROPERTIES
     URL "https://github.com/Xtra-Computing/thundersvm.git"
     PURPOSE "If detetected, ThunderSVM can be used for manifold training in SDCL sampler.")
 # ThunderSVM is used to train manifold in SDCL sampler
+find_package(CUDA)
 find_package(thundersvm)
-if (THUNDERSVM_FOUND)
+if (THUNDERSVM_FOUND AND CUDA_FOUND)
     set(OMPL_HAVE_THUNDERSVM 1)
+    include_directories(SYSTEM "${CUDA_INCLUDE_DIRS}")
     include_directories(SYSTEM "${THUNDERSVM_INCLUDE_DIRS}")
     link_directories(${THUNDERSVM_LIBRARY_DIRS})
 endif()

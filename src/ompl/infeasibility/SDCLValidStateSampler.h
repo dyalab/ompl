@@ -45,6 +45,8 @@
 #include "ompl/util/RandomNumbers.h"
 #include "ompl/base/Planner.h"
 #include "ompl/tools/config/MagicConstants.h"
+#include <ompl/infeasibility/Manifold.h>
+#include <ompl/infeasibility/SVMManifold.h>
 #include <boost/thread/thread.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/thread_pool.hpp>
@@ -58,7 +60,7 @@
 #include <vector>
 #include <atomic>
 #include <thread>
-#include <nlopt.h>
+
 
 struct ModelData
 {
@@ -90,8 +92,7 @@ namespace ompl
         class SDCLValidStateSampler : public ValidStateSampler
         {
         public:
-            /** \brief Constructor, base sampler is uniform sampling, TODO: add option to use Gaussian sampling in the
-             * future. */
+            /** \brief Constructor, base sampler is uniform sampling*/
             SDCLValidStateSampler(const SpaceInformation *si, const PlannerPtr planner);
 
             ~SDCLValidStateSampler() override;
@@ -157,7 +158,7 @@ namespace ompl
             std::atomic<bool> sdclThreadStarted_{false};
 
             /** \brief The sampler to build upon */
-            std::shared_ptr<pvec> SDCLPoints_;
+            std::shared_ptr<std::vector<base::State *>> SDCLPoints_;
 
             /** \brief valid SDCL points mutex*/
             mutable std::mutex SDCLPointsMutex_;
@@ -187,42 +188,34 @@ namespace ompl
             ModelData savedModelData_;
 
             /** \brief collision points, saved when sampling, used in sampleManifoldPoints*/
-            std::shared_ptr<pvec> collisionPoints_;
+            std::shared_ptr<std::vector<base::State *>> collisionPoints_;
+            std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
 
             /** \brief C free points, saved when getting training data, used in sampleManifoldPoints*/
-            std::shared_ptr<pvec> freePoints_;
+            // std::shared_ptr<pvec> freePoints_;
 
             /** \brief virtual C free points, saved when sampling, used for training*/
-            std::shared_ptr<pvec> virtualCfreePoints_;
+            // std::shared_ptr<pvec> virtualCfreePoints_;
 
             /** \brief virtual Cfree points mutex*/
-            mutable std::mutex virtualCfreePointsMutex_;
+            // mutable std::mutex virtualCfreePointsMutex_;
 
             /** \brief collision points mutex*/
             mutable std::mutex collisionPointsMutex_;
-
-            /** \brief Gaussian sampling std. */
-            double stddev_;
-
-            /** \brief whether to use training data as seeds for sampling the manifold */
-            bool use_training_;
-
-            /** \brief whether to use Gaussian sampling. */
-            bool use_Gaussian_;
 
             /** \brief upper and lower bound used in opt formulation */
             std::vector<double> upper_bound_;
             std::vector<double> lower_bound_;
 
             /** \brief count the number of goal and start points. */
-            unsigned int numOneClassPoints_{0};
-            unsigned int numOtherClassPoints_{0};
+            // unsigned int numOneClassPoints_{0};
+            // unsigned int numOtherClassPoints_{0};
 
             /** \brief make training data set from graph disjoint set*/
-            void makeTrainingDataFromGraph();
+            // void makeTrainingDataFromGraph();
 
             /** \brief Setup training parameters */
-            void trainingSetup();
+            // void trainingSetup();
 
             /** \brief sampling points on manifold */
             void sampleManifoldPoints();
@@ -231,23 +224,25 @@ namespace ompl
             void saveCollisionPoints(base::State *workState);
 
             /** \brief save state to virtual cfree points */
-            void saveVirtualCfreePoints(base::State *workState);
+            // void saveVirtualCfreePoints(base::State *workState);
 
             /** \brief calculate manifold points */
-            void calManifoldPoints(const pt intput_point);
+            void calManifoldPoints(const base::State * input_state);
 
-            /** \brief calcualte the value of the manifold function with given point */
-            double evaluate(const double *point);
+            // /* \brief calcualte the value of the manifold function with given point 
+            // double evaluate(const double *point);
 
-            /** \brief save model data to data structure */
-            void saveModelData();
+            // /** \brief save model data to data structure */
+            // void saveModelData();
 
-            /** \brief whether state is within margin and valid */
+            /** \brief whether state is valid with virtual CFree and Cobs */
             bool isValidWithMargin(State *state);
 
-            /** \brief save out of bound state to collision points set or free points set. Return true if out of bound,
-             * false otherwise */
-            bool outOfBound(State *state);
+            /** \brief return true if in virtual Cobs */
+            bool outOfLimits(State *state);
+
+            /** \brief return true if in virtual CFree */
+            bool outOfLimitsCollision(State *state);
 
             /** \brief sample uniformly with virtual obstacle region and virutal free region */
             void sampleUniformWithMargin(State *state);

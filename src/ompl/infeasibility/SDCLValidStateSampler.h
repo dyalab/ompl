@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2023, Colorado School of Mines
+ *  Copyright (c) 2024, WSU
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,6 @@
 #include <vector>
 #include <atomic>
 #include <thread>
-
 
 struct ModelData
 {
@@ -189,6 +188,7 @@ namespace ompl
 
             /** \brief collision points, saved when sampling, used in sampleManifoldPoints*/
             std::shared_ptr<std::vector<base::State *>> collisionPoints_;
+            std::shared_ptr<std::vector<base::State *>> freePoints_;
             std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
 
             /** \brief C free points, saved when getting training data, used in sampleManifoldPoints*/
@@ -223,13 +223,15 @@ namespace ompl
             /** \brief save state to collision points */
             void saveCollisionPoints(base::State *workState);
 
+            void getCfreePoints();
+
             /** \brief save state to virtual cfree points */
             // void saveVirtualCfreePoints(base::State *workState);
 
             /** \brief calculate manifold points */
-            void calManifoldPoints(const base::State * input_state);
+            void calManifoldPoints(const base::State *input_state);
 
-            // /* \brief calcualte the value of the manifold function with given point 
+            // /* \brief calcualte the value of the manifold function with given point
             // double evaluate(const double *point);
 
             // /** \brief save model data to data structure */
@@ -246,6 +248,8 @@ namespace ompl
 
             /** \brief sample uniformly with virtual obstacle region and virutal free region */
             void sampleUniformWithMargin(State *state);
+
+            void clearStates(std::shared_ptr<std::vector<base::State *>> statelist);
         };
     }  // namespace base
 }  // namespace ompl

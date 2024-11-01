@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2021,
+ *  Copyright (c) 2024,
  *  Max Planck Institute for Intelligent Systems (MPI-IS).
  *  All rights reserved.
  *
@@ -38,12 +38,9 @@
 
 #include <ompl/infeasibility/Manifold.h>
 
-ompl::infeasibility::Manifold::Manifold(std::string name, std::size_t amb_d, std::size_t cod_d)
- : name_(std::move(name))
- , amb_d_(amb_d)
- , cod_d_(cod_d)
+ompl::infeasibility::Manifold::Manifold(std::string name, std::size_t ambDim, std::size_t coDim)
+  : name_(std::move(name)), ambDim_(ambDim), coDim_(coDim)
 {
-	if (amb_d_ <= cod_d_)
-		throw Exception(name_, "Invalid ambient dimension for manifold.");
-
+    if (ambDim_ <= coDim_)
+        throw Exception(name_, "Invalid ambient dimension for manifold.");
 }

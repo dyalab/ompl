@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2021,
+ *  Copyright (c) 2024,
  *  Max Planck Institute for Intelligent Systems (MPI-IS).
  *  All rights reserved.
  *
@@ -114,12 +114,11 @@ int findClosestPoint(double *res, int n, ompl::infeasibility::SVMModelData svm_d
     return result;
 }
 
-ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si, std::string name, std::size_t amb_d, std::size_t cod_d)
-: Manifold(name, amb_d, cod_d)
-, si_(si)
-, size_of_smallest_training_set_(magic::MIN_TRAINING_SIZE)
+ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si, std::string name, std::size_t ambDim,
+                                              std::size_t coDim)
+  : Manifold(name, ambDim, coDim), si_(si)
 {
-	modelData_ = SVMModelData();
+    modelData_ = SVMModelData();
     trainingSetup();
 }
 
@@ -132,7 +131,7 @@ ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si
 // 	const double* rho_data = (model->get_rho()).host_data();
 //     DataSet::node2d vectors = model->svs();
 //     const double* coef_data = (model->get_coef()).host_data();
-//     int features = amb_d_;
+//     int features = ambDim_;
 
 //     modelData_.b = (float_inf)rho_data[0];
 //     modelData_.num_vectors = model_->total_sv();
@@ -147,31 +146,34 @@ ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si
 //     }
 // }
 
-float_inf ompl::infeasibility::SVMManifold::evalManifold(const base::State* point) 
+float_inf ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
 {
-	double f = 0;
+    double f = 0;
     double dists_square[modelData_.num_vectors];
-    int features = amb_d_;
+    int features = ambDim_;
 
     auto *rpoint = static_cast<const base::RealVectorStateSpace::StateType *>(point);
 
-    for(int k = 0; k < modelData_.num_vectors; k++){
+    for (int k = 0; k < modelData_.num_vectors; k++)
+    {
         dists_square[k] = 0;
-        for(int i = 0; i < features; i++){
+        for (int i = 0; i < features; i++)
+        {
             dists_square[k] += pow(rpoint->values[i] - modelData_.vectors[k * features + i], 2);
         }
         f += modelData_.coef[k] * exp(-modelData_.gamma * dists_square[k]);
     }
 
-    return f-modelData_.b; 
+    return f - modelData_.b;
 }
 
-bool ompl::infeasibility::SVMManifold::learnManifold(const base::PlannerDataPtr& plannerData) {
+bool ompl::infeasibility::SVMManifold::learnManifold(const base::PlannerDataPtr &plannerData)
+{
     makeTrainingDataFromGraph(plannerData);
 
     // wait until there is a reasonable number of samples.
     if (numOneClassPoints_ == 0 || numOtherClassPoints_ == 0 ||
-        numOneClassPoints_ + numOtherClassPoints_ < size_of_smallest_training_set_)
+        numOneClassPoints_ + numOtherClassPoints_ < magic::MIN_TRAINING_SIZE)
         return false;
 
     // train RBF-kernel SVM with thunderSVM.
@@ -180,28 +182,20 @@ bool ompl::infeasibility::SVMManifold::learnManifold(const base::PlannerDataPtr&
     saveModelData();
 
     return true;
-
 }
 
-void ompl::infeasibility::SVMManifold::clearStates(std::shared_ptr<std::vector<base::State *>> statelist) {
-    for (int i = 0; i < statelist->size(); i++) {
-        si_->freeState((*statelist)[i]);
-    }
-}
-
-void ompl::infeasibility::SVMManifold::makeTrainingDataFromGraph(const base::PlannerDataPtr& plannerData) {
+void ompl::infeasibility::SVMManifold::makeTrainingDataFromGraph(const base::PlannerDataPtr &plannerData)
+{
     unsigned int data_size = plannerData->numVertices();
     unsigned int start_size = plannerData->numStartVertices();
     unsigned int goal_size = plannerData->numGoalVertices();
-    int features = amb_d_;
+    int features = ambDim_;
     float *classes = new float[data_size];
-    float *data = new float[(data_size) * features];
+    float *data = new float[(data_size)*features];
     numOneClassPoints_ = 0;
     numOtherClassPoints_ = 0;
     std::vector<int> start_tags;
     std::vector<int> goal_tags;
-    clearStates(freePoints_);
-    freePoints_.reset(new std::vector<base::State*>());
 
     // the number of vertices in the goal region and the start region.
     // then use the smaller region's points as one class when training.
@@ -247,7 +241,6 @@ void ompl::infeasibility::SVMManifold::makeTrainingDataFromGraph(const base::Pla
         for (int j = 0; j < features; j++)
         {
             data[features * cur_index + j] = (float)s->as<base::RealVectorStateSpace::StateType>()->values[j];
-            freePoints_->push_back(si_->cloneState(s));
         }
 
         // whether current point is in one class.
@@ -278,8 +271,8 @@ void ompl::infeasibility::SVMManifold::makeTrainingDataFromGraph(const base::Pla
     delete[] classes;
 }
 
-
-void ompl::infeasibility::SVMManifold::trainingSetup() {
+void ompl::infeasibility::SVMManifold::trainingSetup()
+{
     model_.reset(new SVC());
     param_.kernel_type = SvmParam::RBF;
     param_.degree = 3;
@@ -327,28 +320,29 @@ void ompl::infeasibility::SVMManifold::saveModelData()
     }
 }
 
-bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State* seed, base::State* res) {
-    double res_data[amb_d_] = {};
+bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State *seed, base::State *res)
+{
+    double res_data[ambDim_] = {};
     auto *rseed = static_cast<const base::RealVectorStateSpace::StateType *>(seed);
 
-    for (unsigned int ii = 0; ii < amb_d_; ii++)
+    for (unsigned int ii = 0; ii < ambDim_; ii++)
     {
         res_data[ii] = rseed->values[ii];
     }
 
     // opt to find closest point on manifold
-    int success = findClosestPoint(res_data, amb_d_, modelData_, 
-        (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low, 
-        (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high);
+    int success = findClosestPoint(res_data, ambDim_, modelData_,
+                                   (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low,
+                                   (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high);
     auto *rres = static_cast<base::RealVectorStateSpace::StateType *>(res);
 
-    for (unsigned int ii = 0; ii < amb_d_; ii++)
+    for (unsigned int ii = 0; ii < ambDim_; ii++)
     {
         rres->values[ii] = res_data[ii];
     }
 
     double svm_value = evalManifold(res);
-    
+
     if (success > 0 && abs(svm_value) < 0.001)
     {
         return true;
@@ -360,7 +354,7 @@ bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State* seed, b
 // {
 // 	double f = 0;
 //     double dists_square[modelData_.num_vectors];
-//     int features = amb_d_;
+//     int features = ambDim_;
 
 //     for(int k = 0; k < modelData_.num_vectors; k++){
 //         dists_square[k] = 0;
@@ -370,14 +364,14 @@ bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State* seed, b
 //         f += modelData_.coef[k] * exp(-modelData_.gamma * dists_square[k]);
 //     }
 
-//     return f-modelData_.b; 
+//     return f-modelData_.b;
 // }
 
 // float_inf ompl::infeasibility::SVMManifold::manifoldEval(float_inf* point)
 // {
 // 	double f = 0;
 //     double dists_square[modelData_.num_vectors];
-//     int features = amb_d_;
+//     int features = ambDim_;
 
 //     for(int k = 0; k < modelData_.num_vectors; k++){
 //         dists_square[k] = 0;
@@ -387,7 +381,7 @@ bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State* seed, b
 //         f += modelData_.coef[k] * exp(-modelData_.gamma * dists_square[k]);
 //     }
 
-//     return f-modelData_.b; 
+//     return f-modelData_.b;
 // }
 
 // void ompl::infeasibility::SVMManifold::copyModelData(const SVMManifold& sm)

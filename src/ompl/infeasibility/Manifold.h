@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2021,
+ *  Copyright (c) 2024,
  *  Max Planck Institute for Intelligent Systems (MPI-IS).
  *  All rights reserved.
  *
@@ -53,20 +53,40 @@ namespace ompl
         class Manifold
         {
         public:
-            Manifold(std::string name, std::size_t amb_d, std::size_t cod_d_ = 1);
-            // virtual Manifold(const Manifold& source);
-            std::size_t amb_d() const {return amb_d_;};
-            std::size_t cod_d() const {return cod_d_;};
-            std::string name() const {return name_;};
-            virtual float_inf evalManifold(const base::State* point) = 0;
-            virtual bool learnManifold(const base::PlannerDataPtr& plannerData) = 0; // use sampled planner data to learn a manifold.
-            virtual bool sampleManifold(const base::State* seed, base::State* res) = 0;
+            Manifold(std::string name, std::size_t ambDim, std::size_t coDim_ = 1);
+            Manifold &operator=(const Manifold &) = delete;
+            std::size_t getAmbDim() const
+            {
+                return ambDim_;
+            };
+            std::size_t getCoDim() const
+            {
+                return coDim_;
+            };
+            std::string name() const
+            {
+                return name_;
+            };
+            /** \brief evaluate the manifold at the given point */
+            virtual float_inf evalManifold(const base::State *point) = 0;
+
+            /** \brief train the manifold with planner data */
+            virtual bool learnManifold(const base::PlannerDataPtr &plannerData) = 0;
+
+            /** \brief Get the space information this manifold is in */
+            virtual bool sampleManifold(const base::State *seed, base::State *res) = 0;
+
         protected:
+            /** \brief Name of the manifold */
             std::string name_;
-            std::size_t amb_d_;
-            std::size_t cod_d_;
+
+            /** \brief dimension of the ambient space */
+            std::size_t ambDim_;
+
+            /** \brief codimension of the manifold */
+            std::size_t coDim_;
         };
-    }
-}
+    }  // namespace infeasibility
+}  // namespace ompl
 
 #endif

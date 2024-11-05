@@ -39,7 +39,6 @@
 #ifndef OMPL_INFEASIBILITY_MANIFOLD
 #define OMPL_INFEASIBILITY_MANIFOLD
 
-#include <ompl/infeasibility/basic.h>
 #include <ompl/base/State.h>
 #include "ompl/base/PlannerData.h"
 #include "ompl/base/Planner.h"
@@ -68,7 +67,7 @@ namespace ompl
                 return name_;
             };
             /** \brief evaluate the manifold at the given point */
-            virtual float_inf evalManifold(const base::State *point) = 0;
+            virtual double evalManifold(const base::State *point) = 0;
 
             /** \brief train the manifold with planner data */
             virtual bool learnManifold(const base::PlannerDataPtr &plannerData) = 0;

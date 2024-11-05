@@ -50,13 +50,13 @@ namespace ompl
 double objfunc(unsigned int n, const double *x, double *grad, void *data)
 {
     ompl::infeasibility::SVMModelData *d = (ompl::infeasibility::SVMModelData *)data;
-    float_inf b = d->b;
+    double b = d->b;
     int num_vectors = d->num_vectors;
-    float_inf *coef = d->coef;
-    float_inf *vectors = d->vectors;
-    float_inf gamma = d->gamma;
-    float_inf f = 0;
-    float_inf dists_square[num_vectors];
+    double *coef = d->coef;
+    double *vectors = d->vectors;
+    double gamma = d->gamma;
+    double f = 0;
+    double dists_square[num_vectors];
     for (int k = 0; k < num_vectors; k++)
     {
         dists_square[k] = 0;
@@ -118,35 +118,10 @@ ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si
                                               std::size_t coDim)
   : Manifold(name, ambDim, coDim), si_(si)
 {
-    modelData_ = SVMModelData();
     trainingSetup();
 }
 
-// void ompl::infeasibility::SVMManifold::setModelData(std::shared_ptr<SvmModel> model) {
-//     if (modelData_.coef != NULL)
-//         free(modelData_.coef)
-//     if (modelData_.vectors != NULL)
-//         free(modelData_.vectors)
-
-// 	const double* rho_data = (model->get_rho()).host_data();
-//     DataSet::node2d vectors = model->svs();
-//     const double* coef_data = (model->get_coef()).host_data();
-//     int features = ambDim_;
-
-//     modelData_.b = (float_inf)rho_data[0];
-//     modelData_.num_vectors = model_->total_sv();
-//     modelData_.gamma = (float_inf)param_.gamma;
-//     modelData_.coef = (float_inf*) malloc(sizeof(float_inf) * modelData_.num_vectors);
-//     modelData_.vectors = (float_inf*) malloc(sizeof(float_inf) * modelData_.num_vectors * features);
-//     for (int i = 0; i < modelData_.num_vectors; i++) {
-//         for (int j = 0; j < features; j++) {
-//             modelData_.vectors[i * features + j] = (float_inf)vectors[i][j].value;
-//         }
-//         modelData_.coef[i] = (float_inf)coef_data[i];
-//     }
-// }
-
-float_inf ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
+double ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
 {
     double f = 0;
     double dists_square[modelData_.num_vectors];
@@ -300,16 +275,16 @@ void ompl::infeasibility::SVMManifold::saveModelData()
     if (!modelData_.coef)
         delete[] modelData_.coef;
 
-    const float_type *rho_data = (model_->get_rho()).host_data();
+    const double *rho_data = (model_->get_rho()).host_data();
     DataSet::node2d vectors = model_->svs();
-    const float_type *coef_data = (model_->get_coef()).host_data();
+    const double *coef_data = (model_->get_coef()).host_data();
     int features = si_->getStateDimension();
 
     modelData_.b = rho_data[0];
     modelData_.num_vectors = model_->total_sv();
     modelData_.gamma = param_.gamma;
-    modelData_.coef = new float_inf[modelData_.num_vectors];
-    modelData_.vectors = new float_inf[modelData_.num_vectors * features];
+    modelData_.coef = new double[modelData_.num_vectors];
+    modelData_.vectors = new double[modelData_.num_vectors * features];
     for (int i = 0; i < modelData_.num_vectors; i++)
     {
         for (int j = 0; j < features; j++)
@@ -349,47 +324,3 @@ bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State *seed, b
     }
     return false;
 }
-
-// float_inf ompl::infeasibility::SVMManifold::manifoldEval(const pt& point)
-// {
-// 	double f = 0;
-//     double dists_square[modelData_.num_vectors];
-//     int features = ambDim_;
-
-//     for(int k = 0; k < modelData_.num_vectors; k++){
-//         dists_square[k] = 0;
-//         for(int i = 0; i < features; i++){
-//             dists_square[k] += pow(point[i] - modelData_.vectors[k][i], 2);
-//         }
-//         f += modelData_.coef[k] * exp(-modelData_.gamma * dists_square[k]);
-//     }
-
-//     return f-modelData_.b;
-// }
-
-// float_inf ompl::infeasibility::SVMManifold::manifoldEval(float_inf* point)
-// {
-// 	double f = 0;
-//     double dists_square[modelData_.num_vectors];
-//     int features = ambDim_;
-
-//     for(int k = 0; k < modelData_.num_vectors; k++){
-//         dists_square[k] = 0;
-//         for(int i = 0; i < features; i++){
-//             dists_square[k] += pow(point[i] - modelData_.vectors[k][i], 2);
-//         }
-//         f += modelData_.coef[k] * exp(-modelData_.gamma * dists_square[k]);
-//     }
-
-//     return f-modelData_.b;
-// }
-
-// void ompl::infeasibility::SVMManifold::copyModelData(const SVMManifold& sm)
-// {
-// 	ModelData prev = sm.getModelData();
-// 	modelData_.b = prev.b;
-//     modelData_.num_vectors = prev.num_vectors;
-//     modelData_.gamma = prev.gamma;
-//     modelData_.coef = prev.coef;
-//     modelData_.vectors = prev.vectors;
-// }

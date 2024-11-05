@@ -61,25 +61,6 @@
 #include <atomic>
 #include <thread>
 
-struct ModelData
-{
-    ModelData()
-    {
-        b = 0;
-        num_vectors = 0;
-        gamma = 0;
-        coef = NULL;
-        vectors = NULL;
-    };
-    double b;
-    int num_vectors;
-    double gamma;
-    double *coef;
-    double *vectors;
-};
-
-double objfunc(unsigned n, const double *x, double *grad, void *data);
-int findClosestPoint(double *p, double *startingP, double *res, int n, ModelData svm_data);
 
 namespace ompl
 {
@@ -99,28 +80,16 @@ namespace ompl
             bool sample(State *state) override;
             bool sampleNear(State *state, const State *near, double distance) override;
 
-            /** \brief use SDCL proof manifold to generate samples for planning */
+            /** \brief use SDCL learned manifold to generate samples for planning */
             void generateSDCLSamples();
 
             /** \brief end the SDCL thread */
             void endSDCLThread();
 
-            /** \brief return the number of manifold points added to search */
+            /** \brief return the number of manifold points used as samples */
             unsigned int numSDCLSamplesAdded()
             {
                 return usedSDCLPointsCount_;
-            }
-
-            /** \brief Get the size of the smallest training set for training the manifold */
-            unsigned int getSizeSmallestTrainingSet() const
-            {
-                return size_of_smallest_training_set_;
-            }
-
-            /** \brief Set the size of the smallest training set for training the manifold */
-            void setSizeSmallestTrainingSet(unsigned int size)
-            {
-                size_of_smallest_training_set_ = size;
             }
 
             /** \brief Get virtual obstacle region and free region margin */
@@ -136,87 +105,6 @@ namespace ompl
             }
 
         protected:
-            using pt = std::vector<double>;
-
-            /** @brief A data structure for storing vector of points in SDCL part */
-            using pvec = std::vector<std::vector<double>>;
-
-            /** \brief The sampler to build upon */
-            StateSamplerPtr sampler_;
-
-            /** \brief The planner to get training data */
-            PlannerPtr planner_;
-
-            /** \brief the sdcl thread */
-            std::thread SDCLThread_;
-
-            /** \brief mark termination of the sdcl thread */
-            std::atomic<bool> sdclThreadEnded_{false};
-
-            /** \brief mark start of the sdcl thread */
-            std::atomic<bool> sdclThreadStarted_{false};
-
-            /** \brief The sampler to build upon */
-            std::shared_ptr<std::vector<base::State *>> SDCLPoints_;
-
-            /** \brief valid SDCL points mutex*/
-            mutable std::mutex SDCLPointsMutex_;
-
-            /** \brief current number of valid SDCL points*/
-            std::atomic<unsigned int> curSDCLPointsCount_{0};
-
-            /** \brief count of used valid SDCL points*/
-            std::atomic<unsigned int> usedSDCLPointsCount_{0};
-
-            /** \brief counts the number of times the sampler has been called.*/
-            std::atomic<unsigned int> samplingCount_{0};
-
-            /** \brief the size of the smallest allow training set size.*/
-            unsigned int size_of_smallest_training_set_;
-
-            /** \brief the margin for virtual obstacle region and virtual free region outside of the boundaries.*/
-            double delta_;
-
-            /** \brief An instance of a random number generator */
-            RNG rng_;
-
-            /** \brief svm model related data, TODO: use the ompl::base::Constraint class? */
-            DataSet dataset_;
-            SvmParam param_;
-            std::shared_ptr<SvmModel> model_;
-            ModelData savedModelData_;
-
-            /** \brief collision points, saved when sampling, used in sampleManifoldPoints*/
-            std::shared_ptr<std::vector<base::State *>> collisionPoints_;
-            std::shared_ptr<std::vector<base::State *>> freePoints_;
-            std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
-
-            /** \brief C free points, saved when getting training data, used in sampleManifoldPoints*/
-            // std::shared_ptr<pvec> freePoints_;
-
-            /** \brief virtual C free points, saved when sampling, used for training*/
-            // std::shared_ptr<pvec> virtualCfreePoints_;
-
-            /** \brief virtual Cfree points mutex*/
-            // mutable std::mutex virtualCfreePointsMutex_;
-
-            /** \brief collision points mutex*/
-            mutable std::mutex collisionPointsMutex_;
-
-            /** \brief upper and lower bound used in opt formulation */
-            std::vector<double> upper_bound_;
-            std::vector<double> lower_bound_;
-
-            /** \brief count the number of goal and start points. */
-            // unsigned int numOneClassPoints_{0};
-            // unsigned int numOtherClassPoints_{0};
-
-            /** \brief make training data set from graph disjoint set*/
-            // void makeTrainingDataFromGraph();
-
-            /** \brief Setup training parameters */
-            // void trainingSetup();
-
             /** \brief sampling points on manifold */
             void sampleManifoldPoints();
 
@@ -241,15 +129,59 @@ namespace ompl
             bool isValidWithMargin(State *state);
 
             /** \brief return true if in virtual Cobs */
-            bool outOfLimits(State *state);
+            bool outOfBounds(State *state);
 
             /** \brief return true if in virtual CFree */
-            bool outOfLimitsCollision(State *state);
+            bool outOfBoundsCollision(State *state);
 
             /** \brief sample uniformly with virtual obstacle region and virutal free region */
             void sampleUniformWithMargin(State *state);
 
+            /** \brief helper function to clear states in lists. */
             void clearStates(std::shared_ptr<std::vector<base::State *>> statelist);
+
+            /** \brief The sampler to build upon */
+            StateSamplerPtr sampler_;
+
+            /** \brief The planner to get training data */
+            PlannerPtr planner_;
+
+            /** \brief the sdcl thread */
+            std::thread SDCLThread_;
+
+            /** \brief mark termination of the sdcl thread */
+            std::atomic<bool> sdclThreadEnded_{false};
+
+            /** \brief The sampler to build upon */
+            std::shared_ptr<std::vector<base::State *>> SDCLPoints_;
+
+            /** \brief valid SDCL points mutex*/
+            mutable std::mutex SDCLPointsMutex_;
+
+            /** \brief collision points mutex*/
+            mutable std::mutex collisionPointsMutex_;
+
+            /** \brief current number of valid SDCL points*/
+            std::atomic<unsigned int> curSDCLPointsCount_{0};
+
+            /** \brief count of used valid SDCL points*/
+            std::atomic<unsigned int> usedSDCLPointsCount_{0};
+
+            /** \brief the margin for virtual obstacle region and virtual free region outside of the boundaries.*/
+            double delta_;
+
+            /** \brief An instance of a random number generator */
+            RNG rng_;
+
+            /** \brief collision points, saved when sampling, used in sampleManifoldPoints.*/
+            std::shared_ptr<std::vector<base::State *>> collisionPoints_;
+
+            /** \brief the learned manifold, in manifold class*/
+            std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
+
+            /** \brief upper and lower bound used in si*/
+            std::vector<double> upperBound_;
+            std::vector<double> lowerBound_;
         };
     }  // namespace base
 }  // namespace ompl

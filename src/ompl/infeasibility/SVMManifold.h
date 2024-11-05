@@ -40,7 +40,6 @@
 #define OMPL_INFEASIBILITY_SVMMANIFOLD
 
 #include <ompl/infeasibility/Manifold.h>
-#include <ompl/infeasibility/basic.h>
 #include "ompl/base/PlannerData.h"
 #include <ompl/base/State.h>
 #include "ompl/base/spaces/RealVectorStateSpace.h"
@@ -79,11 +78,11 @@ namespace ompl
                 coef = prev.coef;
                 vectors = prev.vectors;
             };
-            float_inf b;
+            double b;
             int num_vectors;
-            float_inf gamma;
-            float_inf *coef;
-            float_inf *vectors;
+            double gamma;
+            double *coef;
+            double *vectors;
         };
 
         class SVMManifold : public ompl::infeasibility::Manifold
@@ -96,7 +95,7 @@ namespace ompl
               , si_(source.getSpaceInformation())
               , modelData_(source.getModelData()){};
 
-            float_inf evalManifold(const base::State *point) override;
+            double evalManifold(const base::State *point) override;
             bool learnManifold(const base::PlannerDataPtr &plannerData) override;
             bool sampleManifold(const base::State *seed, base::State *res) override;
 
@@ -111,6 +110,7 @@ namespace ompl
                 return si_;
             };
 
+        private:
             /** \brief make training data set from graph disjoint set*/
             void makeTrainingDataFromGraph(const base::PlannerDataPtr &plannerData);
 
@@ -119,8 +119,6 @@ namespace ompl
 
             /** \brief save model data output from svm library to SVMModelData */
             void saveModelData();
-
-        private:
             base::SpaceInformationPtr si_;
 
             SVMModelData modelData_; // saved model data

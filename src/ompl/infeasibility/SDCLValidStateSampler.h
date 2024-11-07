@@ -113,17 +113,8 @@ namespace ompl
 
             void getCfreePoints();
 
-            /** \brief save state to virtual cfree points */
-            // void saveVirtualCfreePoints(base::State *workState);
-
             /** \brief calculate manifold points */
             void calManifoldPoints(const base::State *input_state);
-
-            // /* \brief calcualte the value of the manifold function with given point
-            // double evaluate(const double *point);
-
-            // /** \brief save model data to data structure */
-            // void saveModelData();
 
             /** \brief whether state is valid with virtual CFree and Cobs */
             bool isValidWithMargin(State *state);

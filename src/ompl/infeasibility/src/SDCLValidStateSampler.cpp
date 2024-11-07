@@ -70,6 +70,7 @@ ompl::base::SDCLValidStateSampler::~SDCLValidStateSampler()
 {
     endSDCLThread();
     clearStates(SDCLPoints_);
+    clearStates(collisionPoints_);
 }
 
 void ompl::base::SDCLValidStateSampler::clearStates(std::shared_ptr<std::vector<base::State *>> statelist)
@@ -226,7 +227,7 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     {
         boost::asio::post(threadpool, [collision_copy, i, this] { calManifoldPoints(collision_copy[i]); });
     }
-    
+
     // get Cfree points from the planning data.
     PlannerDataPtr plannerData(std::make_shared<PlannerData>(planner_->getSpaceInformation()));
     planner_->getPlannerData(*plannerData);

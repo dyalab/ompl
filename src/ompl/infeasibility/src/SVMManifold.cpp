@@ -43,7 +43,7 @@ namespace ompl
     namespace magic
     {
         /** \brief smallest training size to start training. */
-        static const unsigned int MIN_TRAINING_SIZE = 50;
+        static const unsigned int MIN_TRAINING_SIZE = 500;
     }  // namespace magic
 }  // namespace ompl
 
@@ -149,8 +149,10 @@ bool ompl::infeasibility::SVMManifold::learnManifold(const base::PlannerDataPtr 
     // wait until there is a reasonable number of samples.
     if (numOneClassPoints_ == 0 || numOtherClassPoints_ == 0 ||
         numOneClassPoints_ + numOtherClassPoints_ < magic::MIN_TRAINING_SIZE)
+    {
         return false;
-
+    }
+        
     // train RBF-kernel SVM with thunderSVM.
     model_->train(dataset_, param_);
 
@@ -241,6 +243,8 @@ void ompl::infeasibility::SVMManifold::makeTrainingDataFromGraph(const base::Pla
     }
 
     dataset_.load_from_dense(data_size, features, data, classes);
+
+    std::cout << "one class " << numOneClassPoints_ << " other class " << numOtherClassPoints_ << " data size " << data_size << std::endl;
 
     delete[] data;
     delete[] classes;

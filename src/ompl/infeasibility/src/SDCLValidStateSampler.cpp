@@ -90,15 +90,19 @@ bool ompl::base::SDCLValidStateSampler::sample(State *state)
     {
         // use SDCL points when available, if not, use uniform sampling
         if (curSDCLPointsCount_ > usedSDCLPointsCount_)
-        {
+        {   
+            // OMPL_INFORM("sdcl point used");
             valid = true;
             SDCLPointsMutex_.lock();
             si_->copyState(state, (*SDCLPoints_)[usedSDCLPointsCount_]);
             SDCLPointsMutex_.unlock();
             usedSDCLPointsCount_++;
+            // OMPL_INFORM("using sdcl");
+            // std::cout << usedSDCLPointsCount_ << std::endl;
         }
         else
         {
+            // OMPL_INFORM("using sampling");
             sampleUniformWithMargin(state);
             valid = isValidWithMargin(state);
             if (!valid)
@@ -124,9 +128,10 @@ bool ompl::base::SDCLValidStateSampler::sampleNear(State *state, const State *ne
 
 void ompl::base::SDCLValidStateSampler::endSDCLThread()
 {
+    OMPL_INFORM("End SDCL sampling thread called. ");
     sdclThreadEnded_ = true;
     SDCLThread_.join();
-    // OMPL_INFORM("SDCL sampling thread ended. ");
+    OMPL_INFORM("SDCL sampling thread ended. ");
 }
 
 void ompl::base::SDCLValidStateSampler::sampleUniformWithMargin(State *state)
@@ -190,7 +195,7 @@ void ompl::base::SDCLValidStateSampler::generateSDCLSamples()
     {
     }
 
-    OMPL_INFORM("SDCL sampling thread started ");
+    OMPL_INFORM("SDCL sampling thread started, virtual regions bound is %f", delta_);
 
     // default is SVM manifold, TODO: set other types of manifold if other learn method also works.
     manifold_.reset(
@@ -203,8 +208,10 @@ void ompl::base::SDCLValidStateSampler::generateSDCLSamples()
         planner_->getPlannerData(*plannerData);
         bool success = manifold_->learnManifold(plannerData);
 
-        if (success)
+        if (success) 
+        {
             sampleManifoldPoints();
+        }
     }
 }
 

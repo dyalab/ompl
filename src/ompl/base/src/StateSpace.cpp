@@ -850,6 +850,10 @@ double ompl::base::StateSpace::getLongestValidSegmentLength() const
 
 unsigned int ompl::base::StateSpace::validSegmentCount(const State *state1, const State *state2) const
 {
+    // fprintf(stderr, "longestValidSegment_ = %f\n", longestValidSegment_);
+    // printState(state1);
+    // printState(state2);
+    // fprintf(stderr, "distance = %f\n", distance(state1, state2));
     return longestValidSegmentCountFactor_ * (unsigned int)ceil(distance(state1, state2) / longestValidSegment_);
 }
 

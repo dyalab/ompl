@@ -50,6 +50,8 @@ bool ompl::base::DiscreteMotionValidator::checkMotion(const State *s1, const Sta
 {
     /* assume motion starts in a valid configuration so s1 is valid */
 
+    fprintf(stderr, "Got into %s, %s\n", __FILE__, __FUNCTION__);
+
     bool result = true;
     int nd = stateSpace_->validSegmentCount(s1, s2);
 
@@ -93,6 +95,9 @@ bool ompl::base::DiscreteMotionValidator::checkMotion(const State *s1, const Sta
 bool ompl::base::DiscreteMotionValidator::checkMotion(const State *s1, const State *s2) const
 {
     /* assume motion starts in a valid configuration so s1 is valid */
+
+    fprintf(stderr, "Got into %s, %s\n", __FILE__, __FUNCTION__);
+
     if (!si_->isValid(s2))
     {
         invalid_++;

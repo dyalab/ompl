@@ -116,6 +116,8 @@ void ompl::base::SpaceInformation::setDefaultMotionValidator()
         motionValidator_ = std::make_shared<ConstrainedMotionValidator>(this);
     else
         motionValidator_ = std::make_shared<DiscreteMotionValidator>(this);
+
+    fprintf(stderr, "Got into %s, %s\n", __FILE__, __FUNCTION__);
 }
 
 void ompl::base::SpaceInformation::setValidStateSamplerAllocator(const ValidStateSamplerAllocator &vssa)

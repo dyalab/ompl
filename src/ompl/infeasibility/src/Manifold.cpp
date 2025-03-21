@@ -1,8 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2024,
- *  Max Planck Institute for Intelligent Systems (MPI-IS).
+ *  Copyright (c) 2025, Washington State University
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without

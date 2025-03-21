@@ -1,8 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2024,
- *  Max Planck Institute for Intelligent Systems (MPI-IS).
+ *  Copyright (c) 2025, Washington State University
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -88,15 +87,17 @@ namespace ompl
         class SVMManifold : public ompl::infeasibility::Manifold
         {
         public:
-            SVMManifold(base::SpaceInformationPtr si, std::string name, std::size_t ambDim, std::size_t coDim = 1);
+            SVMManifold(base::SpaceInformationPtr si, std::size_t ambDim, std::size_t coDim = 1);
 
             SVMManifold(const SVMManifold &source)
               : Manifold(source.name(), source.getAmbDim(), source.getCoDim())
               , si_(source.getSpaceInformation())
               , modelData_(source.getModelData()){};
 
+            ~SVMManifold();
+
             double evalManifold(const base::State *point) override;
-            bool learnManifold(const base::PlannerDataPtr &plannerData) override;
+            bool learnManifold(float* data, float* classes, std::size_t data_size) override;
             bool sampleManifold(const base::State *seed, base::State *res) override;
 
             SVMModelData getModelData() const
@@ -111,8 +112,6 @@ namespace ompl
             };
 
         private:
-            /** \brief make training data set from graph disjoint set*/
-            void makeTrainingDataFromGraph(const base::PlannerDataPtr &plannerData);
 
             /** \brief setup training parameters */
             void trainingSetup();
@@ -122,7 +121,7 @@ namespace ompl
             base::SpaceInformationPtr si_;
 
             SVMModelData modelData_; // saved model data
-            DataSet dataset_; // dataset for training
+            // DataSet dataset_; // dataset for training
             SvmParam param_; // parameter for svm training
             std::shared_ptr<SvmModel> model_; // model in thundersvm lib.
 

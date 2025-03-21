@@ -1,8 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2024,
- *  Max Planck Institute for Intelligent Systems (MPI-IS).
+ *  Copyright (c) 2025, Washington State University
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -70,7 +69,7 @@ namespace ompl
             virtual double evalManifold(const base::State *point) = 0;
 
             /** \brief train the manifold with planner data */
-            virtual bool learnManifold(const base::PlannerDataPtr &plannerData) = 0;
+            virtual bool learnManifold(float* data, float* classes, std::size_t data_size) = 0;
 
             /** \brief Get the space information this manifold is in */
             virtual bool sampleManifold(const base::State *seed, base::State *res) = 0;
@@ -84,6 +83,7 @@ namespace ompl
 
             /** \brief codimension of the manifold */
             std::size_t coDim_;
+
         };
     }  // namespace infeasibility
 }  // namespace ompl

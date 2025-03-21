@@ -1,8 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2024,
- *  Max Planck Institute for Intelligent Systems (MPI-IS).
+ *  Copyright (c) 2025, Washington State University
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -114,11 +113,19 @@ int findClosestPoint(double *res, int n, ompl::infeasibility::SVMModelData svm_d
     return result;
 }
 
-ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si, std::string name, std::size_t ambDim,
+ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si, std::size_t ambDim,
                                               std::size_t coDim)
-  : Manifold(name, ambDim, coDim), si_(si)
+  : Manifold("RBF-SVM", ambDim, coDim), si_(si)
 {
     trainingSetup();
+}
+
+ompl::infeasibility::SVMManifold::~SVMManifold() {
+    if (!modelData_.vectors)
+        delete[] modelData_.vectors;
+
+    if (!modelData_.coef)
+        delete[] modelData_.coef;
 }
 
 double ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
@@ -142,112 +149,16 @@ double ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
     return f - modelData_.b;
 }
 
-bool ompl::infeasibility::SVMManifold::learnManifold(const base::PlannerDataPtr &plannerData)
+bool ompl::infeasibility::SVMManifold::learnManifold(float* data, float* classes, std::size_t data_size)
 {
-    makeTrainingDataFromGraph(plannerData);
-
-    // wait until there is a reasonable number of samples.
-    if (numOneClassPoints_ == 0 || numOtherClassPoints_ == 0 ||
-        numOneClassPoints_ + numOtherClassPoints_ < magic::MIN_TRAINING_SIZE)
-    {
-        return false;
-    }
-        
+    DataSet dataset;
+    dataset.load_from_dense(data_size, ambDim_, data, classes);
     // train RBF-kernel SVM with thunderSVM.
-    model_->train(dataset_, param_);
+    model_->train(dataset, param_);
 
     saveModelData();
 
     return true;
-}
-
-void ompl::infeasibility::SVMManifold::makeTrainingDataFromGraph(const base::PlannerDataPtr &plannerData)
-{
-    unsigned int data_size = plannerData->numVertices();
-    unsigned int start_size = plannerData->numStartVertices();
-    unsigned int goal_size = plannerData->numGoalVertices();
-    int features = ambDim_;
-    float *classes = new float[data_size];
-    float *data = new float[(data_size)*features];
-    numOneClassPoints_ = 0;
-    numOtherClassPoints_ = 0;
-    std::vector<int> start_tags;
-    std::vector<int> goal_tags;
-
-    // the number of vertices in the goal region and the start region.
-    // then use the smaller region's points as one class when training.
-    unsigned int n_start_region_points = 0;
-    unsigned int n_goal_region_points = 0;
-
-    for (unsigned int i = 0; i < start_size; i++)
-    {
-        start_tags.push_back(plannerData->getStartVertex(i).getTag());
-        base::PlannerDataPtr subGraph(std::make_shared<base::PlannerData>(si_));
-        plannerData->extractReachable(plannerData->getStartIndex(i), *subGraph);
-        n_start_region_points += subGraph->numVertices();
-    }
-
-    for (unsigned int i = 0; i < goal_size; i++)
-    {
-        goal_tags.push_back(plannerData->getGoalVertex(i).getTag());
-        base::PlannerDataPtr subGraph(std::make_shared<base::PlannerData>(si_));
-        plannerData->extractReachable(plannerData->getGoalIndex(i), *subGraph);
-        n_goal_region_points += subGraph->numVertices();
-    }
-
-    std::vector<int> oneClassTags;
-
-    if (n_goal_region_points > n_start_region_points)
-    {
-        oneClassTags = start_tags;
-    }
-    else
-    {
-        oneClassTags = goal_tags;
-    }
-
-    bool inOneClass = false;
-    int cur_index = 0;
-
-    for (unsigned int i = 0; i < data_size; i++, cur_index++)
-    {
-        base::PlannerDataVertex cur_vertex = plannerData->getVertex(i);
-        int cur_tag = cur_vertex.getTag();
-        const base::State *s = cur_vertex.getState();
-
-        for (int j = 0; j < features; j++)
-        {
-            data[features * cur_index + j] = (float)s->as<base::RealVectorStateSpace::StateType>()->values[j];
-        }
-
-        // whether current point is in one class.
-        if (std::find(oneClassTags.begin(), oneClassTags.end(), cur_tag) != oneClassTags.end())
-        {
-            inOneClass = true;
-        }
-        else
-        {
-            inOneClass = false;
-        }
-
-        if (inOneClass)
-        {
-            classes[cur_index] = -1;
-            numOneClassPoints_++;
-        }
-        else
-        {
-            classes[cur_index] = 1;
-            numOtherClassPoints_++;
-        }
-    }
-
-    dataset_.load_from_dense(data_size, features, data, classes);
-
-    std::cout << "one class " << numOneClassPoints_ << " other class " << numOtherClassPoints_ << " data size " << data_size << std::endl;
-
-    delete[] data;
-    delete[] classes;
 }
 
 void ompl::infeasibility::SVMManifold::trainingSetup()

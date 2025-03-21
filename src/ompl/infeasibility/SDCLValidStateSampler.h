@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2024, WSU
+ *  Copyright (c) 2025, Washington State University
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -45,8 +45,6 @@
 #include "ompl/util/RandomNumbers.h"
 #include "ompl/base/Planner.h"
 #include "ompl/tools/config/MagicConstants.h"
-#include <ompl/infeasibility/Manifold.h>
-#include <ompl/infeasibility/SVMManifold.h>
 #include <boost/thread/thread.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/thread_pool.hpp>
@@ -60,6 +58,9 @@
 #include <vector>
 #include <atomic>
 #include <thread>
+#include <nlopt.h>
+#include <ompl/infeasibility/Manifold.h>
+#include <ompl/infeasibility/SVMManifold.h>
 
 
 namespace ompl
@@ -72,7 +73,8 @@ namespace ompl
         class SDCLValidStateSampler : public ValidStateSampler
         {
         public:
-            /** \brief Constructor, base sampler is uniform sampling*/
+            /** \brief Constructor, base sampler is uniform sampling, TODO: add option to use Gaussian sampling in the
+             * future. */
             SDCLValidStateSampler(const SpaceInformation *si, const PlannerPtr planner);
 
             ~SDCLValidStateSampler() override;
@@ -80,16 +82,28 @@ namespace ompl
             bool sample(State *state) override;
             bool sampleNear(State *state, const State *near, double distance) override;
 
-            /** \brief use SDCL learned manifold to generate samples for planning */
+            /** \brief use SDCL proof manifold to generate samples for planning */
             void generateSDCLSamples();
 
             /** \brief end the SDCL thread */
             void endSDCLThread();
 
-            /** \brief return the number of manifold points used as samples */
+            /** \brief return the number of manifold points added to search */
             unsigned int numSDCLSamplesAdded()
             {
                 return usedSDCLPointsCount_;
+            }
+
+            /** \brief Get the size of the smallest training set for training the manifold */
+            unsigned int getSizeSmallestTrainingSet() const
+            {
+                return size_of_smallest_training_set_;
+            }
+
+            /** \brief Set the size of the smallest training set for training the manifold */
+            void setSizeSmallestTrainingSet(unsigned int size)
+            {
+                size_of_smallest_training_set_ = size;
             }
 
             /** \brief Get virtual obstacle region and free region margin */
@@ -104,32 +118,15 @@ namespace ompl
                 delta_ = m;
             }
 
+            /** \brief Set the learning method for the manifold */
+            void setManifoldType(std::string type);
+
         protected:
-            /** \brief sampling points on manifold */
-            void sampleManifoldPoints();
+            // using pt = std::vector<double>;
 
-            /** \brief save state to collision points */
-            void saveCollisionPoints(base::State *workState);
-
-            void getCfreePoints();
-
-            /** \brief calculate manifold points */
-            void calManifoldPoints(const base::State *input_state);
-
-            /** \brief whether state is valid with virtual CFree and Cobs */
-            bool isValidWithMargin(State *state);
-
-            /** \brief return true if in virtual Cobs */
-            bool outOfBounds(State *state);
-
-            /** \brief return true if in virtual CFree */
-            bool outOfBoundsCollision(State *state);
-
-            /** \brief sample uniformly with virtual obstacle region and virutal free region */
-            void sampleUniformWithMargin(State *state);
-
-            /** \brief helper function to clear states in lists. */
-            void clearStates(std::shared_ptr<std::vector<base::State *>> statelist);
+            /** @brief A data structure for storing vector of points in SDCL part */
+            // using pvec = std::vector<std::vector<double>>;
+            using StateVec = std::vector<State*>;
 
             /** \brief The sampler to build upon */
             StateSamplerPtr sampler_;
@@ -137,20 +134,17 @@ namespace ompl
             /** \brief The planner to get training data */
             PlannerPtr planner_;
 
+            /** \brief Current planner data */
+            PlannerDataPtr plannerData_;
+
             /** \brief the sdcl thread */
             std::thread SDCLThread_;
 
             /** \brief mark termination of the sdcl thread */
             std::atomic<bool> sdclThreadEnded_{false};
 
-            /** \brief The sampler to build upon */
-            std::shared_ptr<std::vector<base::State *>> SDCLPoints_;
-
-            /** \brief valid SDCL points mutex*/
-            mutable std::mutex SDCLPointsMutex_;
-
-            /** \brief collision points mutex*/
-            mutable std::mutex collisionPointsMutex_;
+            /** \brief mark start of the sdcl thread */
+            std::atomic<bool> sdclThreadStarted_{false};
 
             /** \brief current number of valid SDCL points*/
             std::atomic<unsigned int> curSDCLPointsCount_{0};
@@ -158,21 +152,90 @@ namespace ompl
             /** \brief count of used valid SDCL points*/
             std::atomic<unsigned int> usedSDCLPointsCount_{0};
 
+            /** \brief dimension of vector space */
+            unsigned int dim_ = 0;
+
+            /** \brief the size of the smallest allow training set size.*/
+            unsigned int size_of_smallest_training_set_;
+
             /** \brief the margin for virtual obstacle region and virtual free region outside of the boundaries.*/
             double delta_;
 
             /** \brief An instance of a random number generator */
             RNG rng_;
 
-            /** \brief collision points, saved when sampling, used in sampleManifoldPoints.*/
-            std::shared_ptr<std::vector<base::State *>> collisionPoints_;
+            // training data
+            float *data_;
+            float *classes_;
 
             /** \brief the learned manifold, in manifold class*/
             std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
 
-            /** \brief upper and lower bound used in si*/
-            std::vector<double> upperBound_;
-            std::vector<double> lowerBound_;
+            /** \brief The sampler to build upon */
+            std::shared_ptr<StateVec> SDCLPoints_;
+
+            /** \brief collision points, saved when sampling, used in sampleManifoldPoints*/
+            std::shared_ptr<StateVec> collisionPoints_;
+
+            /** \brief C free points, saved when getting training data, used in sampleManifoldPoints*/
+            std::shared_ptr<StateVec> freePoints_;
+
+            /** \brief virtual C free points, saved when sampling, used for training*/
+            std::shared_ptr<StateVec> virtualCfreePoints_;
+
+            /** \brief virtual Cfree points mutex*/
+            mutable std::mutex virtualCfreePointsMutex_;
+
+            /** \brief collision points mutex*/
+            mutable std::mutex collisionPointsMutex_;
+
+            /** \brief Valid SDCL points mutex*/
+            mutable std::mutex SDCLPointsMutex_;
+
+            /** \brief upper and lower bound used in opt formulation */
+            std::vector<double> upper_bound_;
+            std::vector<double> lower_bound_;
+
+            /** \brief count the number of goal and start points. */
+            unsigned int numOneClassPoints_{0};
+            unsigned int numOtherClassPoints_{0};
+
+            double makeTrainingDataTime = 0;
+            double trainingTime = 0;
+            double samplingTime = 0;
+
+            /** \brief make training data set from graph disjoint set*/
+            void makeTrainingDataFromGraph();
+
+            /** \brief sampling points on manifold */
+            void sampleManifoldPoints();
+
+            /** \brief save state to collision points */
+            void saveCollisionPoints(const State *workState);
+
+            /** \brief save state to virtual cfree points */
+            void saveVirtualCfreePoints(const State *workState);
+
+            /** \brief calculate manifold points */
+            // void calManifoldPoints(const pt input_point);
+
+            void calManifoldPoints(const State* input_state);
+
+            /** \brief save model data to data structure */
+            void saveModelData();
+
+            /** \brief whether state is within margin and valid */
+            bool isValidWithInMargin(const State *state);
+
+            /** \brief save out of bound state to collision points set or free points set. Return true if out of bound,
+             * false otherwise */
+            bool outOfBound(const State *state);
+
+            /** \brief sample uniformly with virtual obstacle region and virutal free region */
+            void sampleUniformWithMargin(State *state);
+            
+            /** \brief helper function to clear states in vector of states. */
+            void clearStateVec(std::shared_ptr<StateVec> vec);
         };
     }  // namespace base
 }  // namespace ompl

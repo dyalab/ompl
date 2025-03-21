@@ -52,6 +52,8 @@ if (OMPL_BUILD_DEMOS)
     add_ompl_demo(demo_MultiLevelPlanningHyperCube multilevel/MultiLevelPlanningHyperCube.cpp)
     add_ompl_demo(demo_MultiLevelPlanningHyperCubeBenchmark multilevel/MultiLevelPlanningHyperCubeBenchmark.cpp)
 
+    add_ompl_demo(demo_SDCLRigidBody2D infeasibility/SampleDrivenConnectivityLearning2D.cpp)
+
     add_ompl_demo(demo_SpaceTimePlanning SpaceTimePlanning.cpp)
     
     add_ompl_demo(demo_SampleDrivenConnectivityLearning infeasibility/SampleDrivenConnectivityLearning2D.cpp)

@@ -44,15 +44,19 @@
 #include "ompl/base/spaces/RealVectorStateSpace.h"
 #include "ompl/base/SpaceInformation.h"
 
+#include <string>
+#include <nlopt.h>
+
+#if OMPL_HAVE_THUNDERSVM
 #include <thundersvm/model/svc.h>
 #include <thundersvm/svmparam.h>
 #include <thundersvm/syncarray.h>
 #include <thundersvm/model/svc.h>
 #include <thundersvm/util/metric.h>
 #include <thundersvm/util/log.h>
-
-#include <string>
-#include <nlopt.h>
+#else
+#include "ompl/infeasibility/libsvm/svm.h"
+#endif
 
 namespace ompl
 {
@@ -122,12 +126,15 @@ namespace ompl
 
             SVMModelData modelData_; // saved model data
             // DataSet dataset_; // dataset for training
-            SvmParam param_; // parameter for svm training
-            std::shared_ptr<SvmModel> model_; // model in thundersvm lib.
-
-            /** \brief count the number of the two classes of sample points. The class with less number of points is the oneClass.*/
-            unsigned int numOneClassPoints_{0};
-            unsigned int numOtherClassPoints_{0};
+            #if OMPL_HAVE_THUNDERSVM
+            SvmParam thunderSVMParam_; // parameter for svm training
+            std::shared_ptr<SvmModel> thunderSVMModel_; // model in thundersvm lib.
+            #else
+            svm_parameter libSVMParam_;
+            svm_problem prob_;
+            svm_model *libSVMModel_; // model in libsvm.
+            #endif
+            
         };
     }  // namespace infeasibility
 }  // namespace ompl

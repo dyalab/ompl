@@ -151,35 +151,83 @@ double ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
 
 bool ompl::infeasibility::SVMManifold::learnManifold(float* data, float* classes, std::size_t data_size)
 {
+    #if OMPL_HAVE_THUNDERSVM
     DataSet dataset;
     dataset.load_from_dense(data_size, ambDim_, data, classes);
     // train RBF-kernel SVM with thunderSVM.
-    model_->train(dataset, param_);
-
+    thunderSVMModel_->train(dataset, thunderSVMParam_);
     saveModelData();
+    #else
+    prob_.l = data_size;
+    prob_.y = new double[prob_.l];
+
+    int x_space_size = ambDim_ + 1;
+    svm_node *x_space = new svm_node[x_space_size * prob_.l];
+    prob_.x = new svm_node *[prob_.l];
+    for (int i = 0; i < data_size; i++) {
+        for (int j = 1; j < x_space_size; j++){
+            x_space[x_space_size * i + j - 1].index = j;
+            x_space[x_space_size * i + j - 1].value = (double)data[ambDim_*i + j-1];
+        }
+        x_space[x_space_size * i + x_space_size - 1].index = -1;
+        prob_.x[i] = &x_space[x_space_size * i];
+        prob_.y[i] = (double)classes[i];
+    }
+    if (libSVMModel_ != nullptr) {
+        svm_free_model_content(libSVMModel_);
+        free(libSVMModel_);
+    }
+    libSVMModel_ = svm_train(&prob_, &libSVMParam_);
+    saveModelData();
+    #endif
 
     return true;
 }
 
+void print_null(const char *s) {};
+
 void ompl::infeasibility::SVMManifold::trainingSetup()
 {
-    model_.reset(new SVC());
-    param_.kernel_type = SvmParam::RBF;
-    param_.degree = 3;
-    param_.gamma = 1.0;
-    param_.coef0 = 0;
-    param_.nu = 0.5;
-    param_.C = 100;
-    param_.epsilon = 1e-3;
-    param_.p = 0.1;
-    param_.probability = 0;
-    param_.nr_weight = 0;
-    param_.weight_label = NULL;
-    param_.weight = NULL;
+    #if OMPL_HAVE_THUNDERSVM
+    OMPL_INFORM("Using ThunderSVM and GPU to train the manifold.");
+    thunderSVMModel_.reset(new SVC());
+    thunderSVMParam_.kernel_type = SvmParam::RBF;
+    thunderSVMParam_.degree = 3;
+    thunderSVMParam_.gamma = 1.0;
+    thunderSVMParam_.coef0 = 0;
+    thunderSVMParam_.nu = 0.5;
+    thunderSVMParam_.C = 100;
+    thunderSVMParam_.epsilon = 1e-3;
+    thunderSVMParam_.p = 0.1;
+    thunderSVMParam_.probability = 0;
+    thunderSVMParam_.nr_weight = 0;
+    thunderSVMParam_.weight_label = NULL;
+    thunderSVMParam_.weight = NULL;
 
     // thunderSVM logging config.
     el::Loggers::addFlag(el::LoggingFlag::HierarchicalLogging);
     el::Loggers::setLoggingLevel(el::Level::Unknown);
+    #else
+    OMPL_INFORM("Using libsvm to train the manifold.");
+    libSVMParam_.svm_type = C_SVC;
+    libSVMParam_.kernel_type = RBF;
+    libSVMParam_.degree = 3;
+    libSVMParam_.gamma = 1.0;
+    libSVMParam_.coef0 = 0;
+    libSVMParam_.nu = 0.5;
+    libSVMParam_.cache_size = 100;
+    libSVMParam_.C = 100;
+    libSVMParam_.eps = 1e-3;
+    libSVMParam_.p = 0.1;
+    libSVMParam_.shrinking = 1;
+    libSVMParam_.probability = 0;
+    libSVMParam_.nr_weight = 0;
+    libSVMParam_.weight_label = NULL;
+    libSVMParam_.weight = NULL;
+    // auto print_null = [](const char* s) {
+    // };
+    svm_set_print_string_function(&print_null);
+    #endif
 }
 
 void ompl::infeasibility::SVMManifold::saveModelData()
@@ -190,14 +238,15 @@ void ompl::infeasibility::SVMManifold::saveModelData()
     if (!modelData_.coef)
         delete[] modelData_.coef;
 
-    const double *rho_data = (model_->get_rho()).host_data();
-    DataSet::node2d vectors = model_->svs();
-    const double *coef_data = (model_->get_coef()).host_data();
+    #if OMPL_HAVE_THUNDERSVM
+    const double *rho_data = (thunderSVMModel_->get_rho()).host_data();
+    DataSet::node2d vectors = thunderSVMModel_->svs();
+    const double *coef_data = (thunderSVMModel_->get_coef()).host_data();
     int features = si_->getStateDimension();
 
     modelData_.b = rho_data[0];
-    modelData_.num_vectors = model_->total_sv();
-    modelData_.gamma = param_.gamma;
+    modelData_.num_vectors = thunderSVMModel_->total_sv();
+    modelData_.gamma = thunderSVMParam_.gamma;
     modelData_.coef = new double[modelData_.num_vectors];
     modelData_.vectors = new double[modelData_.num_vectors * features];
     for (int i = 0; i < modelData_.num_vectors; i++)
@@ -208,6 +257,19 @@ void ompl::infeasibility::SVMManifold::saveModelData()
         }
         modelData_.coef[i] = coef_data[i];
     }
+    #else
+    modelData_.b = libSVMModel_->rho[0];
+    modelData_.num_vectors = svm_get_nr_sv(libSVMModel_);
+    modelData_.vectors = new double[modelData_.num_vectors * ambDim_];
+    modelData_.coef = new double[modelData_.num_vectors];
+    for (int i = 0; i < modelData_.num_vectors; i++) {
+        for (int j = 0; j < ambDim_; j++) {
+            modelData_.vectors[i * ambDim_ + j] = libSVMModel_->SV[i][j].value;
+        }
+        modelData_.coef[i] = libSVMModel_->sv_coef[0][i];
+    }
+    modelData_.gamma = libSVMParam_.gamma;
+    #endif
 }
 
 bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State *seed, base::State *res)

@@ -63,7 +63,4 @@
 /** \brief Whether ThunderSVM is installed */
 #cmakedefine01 OMPL_HAVE_THUNDERSVM
 
-/** \brief Whether NLopt is installed */
-#cmakedefine01 OMPL_HAVE_NLOPT
-
 #endif

@@ -172,6 +172,8 @@ if (THUNDERSVM_FOUND AND CUDA_FOUND)
     link_directories(${THUNDERSVM_LIBRARY_DIRS})
 endif()
 
+message(STATUS "Use thundersvm: ${USE_THUNDERSVM}\n")
+
 set_package_properties(nlopt PROPERTIES
     URL "https://github.com/stevengj/nlopt.git"
     PURPOSE "If detetected, NLopt can be used for solving nonlinear optimization problems in SDCL sampler.")
@@ -185,7 +187,7 @@ if (NLOPT_FOUND)
 endif()
 
 set(OMPL_EXTENSION_SDCL 0)
-if (NLOPT_FOUND AND THUNDERSVM_FOUND)
+if (NLOPT_FOUND)
     set(OMPL_EXTENSION_SDCL 1)
 endif()
 

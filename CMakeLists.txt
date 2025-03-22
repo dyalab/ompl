@@ -161,7 +161,7 @@ endif()
 
 set_package_properties(thundersvm PROPERTIES
     URL "https://github.com/Xtra-Computing/thundersvm.git"
-    PURPOSE "If detetected, ThunderSVM can be used for manifold training in SDCL sampler.")
+    PURPOSE "If detetected, ThunderSVM can be used for manifold training in SDCL sampler. If not, will try to use libsvm")
 # ThunderSVM is used to train manifold in SDCL sampler
 find_package(CUDA)
 find_package(thundersvm)

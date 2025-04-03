@@ -85,10 +85,11 @@ double objfunc(unsigned int n, const double *x, double *grad, void *data)
     return (f - b) * (f - b);
 }
 
-int findClosestPoint(double *res, int n, ompl::infeasibility::SVMModelData svm_data, std::vector<double> lower_bound,
+int findClosestPoint(double *res, ompl::infeasibility::SVMModelData svm_data, std::vector<double> lower_bound,
                      std::vector<double> upper_bound)
 {
     nlopt_opt opt;
+    int n = svm_data.features;
     opt = nlopt_create(NLOPT_LD_SLSQP, n);
     nlopt_set_min_objective(opt, objfunc, &svm_data);
     double maxtime = 0.1;
@@ -242,24 +243,25 @@ void ompl::infeasibility::SVMManifold::saveModelData()
     const double *rho_data = (thunderSVMModel_->get_rho()).host_data();
     DataSet::node2d vectors = thunderSVMModel_->svs();
     const double *coef_data = (thunderSVMModel_->get_coef()).host_data();
-    int features = si_->getStateDimension();
 
     modelData_.b = rho_data[0];
     modelData_.num_vectors = thunderSVMModel_->total_sv();
     modelData_.gamma = thunderSVMParam_.gamma;
+    modelData_.features = ambDim_;
     modelData_.coef = new double[modelData_.num_vectors];
-    modelData_.vectors = new double[modelData_.num_vectors * features];
+    modelData_.vectors = new double[modelData_.num_vectors * ambDim_];
     for (int i = 0; i < modelData_.num_vectors; i++)
     {
-        for (int j = 0; j < features; j++)
+        for (int j = 0; j < ambDim_; j++)
         {
-            modelData_.vectors[i * features + j] = vectors[i][j].value;
+            modelData_.vectors[i * ambDim_ + j] = vectors[i][j].value;
         }
         modelData_.coef[i] = coef_data[i];
     }
     #else
     modelData_.b = libSVMModel_->rho[0];
     modelData_.num_vectors = svm_get_nr_sv(libSVMModel_);
+    modelData_.features = ambDim_;
     modelData_.vectors = new double[modelData_.num_vectors * ambDim_];
     modelData_.coef = new double[modelData_.num_vectors];
     for (int i = 0; i < modelData_.num_vectors; i++) {
@@ -283,7 +285,7 @@ bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State *seed, b
     }
 
     // opt to find closest point on manifold
-    int success = findClosestPoint(res_data, ambDim_, modelData_,
+    int success = findClosestPoint(res_data, modelData_,
                                    (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low,
                                    (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high);
     auto *rres = static_cast<base::RealVectorStateSpace::StateType *>(res);

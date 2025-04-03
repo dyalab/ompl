@@ -70,6 +70,7 @@ namespace ompl
                 b = 0;
                 num_vectors = 0;
                 gamma = 0;
+                features = 0;
                 coef = NULL;
                 vectors = NULL;
             };
@@ -78,11 +79,37 @@ namespace ompl
                 b = prev.b;
                 num_vectors = prev.num_vectors;
                 gamma = prev.gamma;
+                features = prev.features;
                 coef = prev.coef;
                 vectors = prev.vectors;
             };
+            void copy(const SVMModelData &prev)
+            {
+                b = prev.b;
+                num_vectors = prev.num_vectors;
+                gamma = prev.gamma;
+                features = prev.features;
+
+                if (!vectors)
+                    delete[] vectors;
+                if (!coef)
+                    delete[] coef;
+
+                coef = new double[num_vectors];
+                vectors = new double[num_vectors * features];
+                for (int i = 0; i < num_vectors; i++)
+                {
+                    for (int j = 0; j < features; j++)
+                    {
+                        vectors[i * features + j] = prev.vectors[i * features + j];
+                    }
+                    coef[i] = prev.coef[i];
+                }
+
+            };
             double b;
             int num_vectors;
+            int features;
             double gamma;
             double *coef;
             double *vectors;

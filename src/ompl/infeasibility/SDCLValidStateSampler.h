@@ -70,6 +70,21 @@ namespace ompl
         /** \brief A state sampler that only samples valid states, detail method is in the
          * paper "Sample-Driven Connectivity Learning for Motion Planning
          * in Narrow Passages". */
+        class SolutionNonExistenceProofManifold : public SolutionNonExistenceProof
+        {
+        public:
+            SolutionNonExistenceProofManifold(SpaceInformationPtr si) 
+            : SolutionNonExistenceProof(si)
+            {
+                manifoldData_ = new ompl::infeasibility::SVMModelData();
+            }
+            ompl::infeasibility::SVMModelData *getSolutionNonExistenceProofManifold() {return manifoldData_;};
+            void setSolutionNonExistenceProofManifold(ompl::infeasibility::SVMModelData manifold) {manifoldData_->copy(manifold);};
+
+        protected:
+            ompl::infeasibility::SVMModelData *manifoldData_;
+        };
+
         class SDCLValidStateSampler : public ValidStateSampler
         {
         public:
@@ -220,9 +235,6 @@ namespace ompl
             // void calManifoldPoints(const pt input_point);
 
             void calManifoldPoints(const State* input_state);
-
-            /** \brief save model data to data structure */
-            void saveModelData();
 
             /** \brief whether state is within margin and valid */
             bool isValidWithInMargin(const State *state);

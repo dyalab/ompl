@@ -374,6 +374,7 @@ void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph()
         classes_[cur_index] = 1;
         numOtherClassPoints_++;
     }
+    // OMPL_INFORM("There are %d one class points, %d other class points", numOneClassPoints_, numOtherClassPoints_);
 }
 
 void ompl::base::SDCLValidStateSampler::saveCollisionPoints(const State *workState)

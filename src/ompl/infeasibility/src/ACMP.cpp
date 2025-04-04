@@ -60,7 +60,7 @@ og::ACMP::ACMP(const base::SpaceInformationPtr &si, double lambda, bool starStra
   , lambda_(lambda)
 {
     setName("ACMP");
-    sampler_ = std::make_shared<ob::SDCLValidStateSampler>(si_.get(), std::static_pointer_cast<ob::Planner>(std::shared_ptr<og::ACMP>(this) ));
+    sampler_ = std::make_shared<ob::SDCLValidStateSampler>(si_.get(), dynamic_cast<ob::Planner*>(this));
     // SDCLSampler_.reset(new ob::SDCLValidStateSampler(si_.get(), this));
     // auto allocSDCLValidStateSampler_partial = [&](const ob::SpaceInformation *si) { return SDCLSampler_; };
     // si_->setValidStateSamplerAllocator(allocSDCLValidStateSampler_partial);
@@ -68,7 +68,8 @@ og::ACMP::ACMP(const base::SpaceInformationPtr &si, double lambda, bool starStra
 
 og::ACMP::~ACMP()
 {
-    (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->endSDCLThread();
+    std::cout << "destroy ACMP" << std::endl;
+    // (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->endSDCLThread();
 }
 
 ompl::base::PlannerStatus og::ACMP::solve(const base::PlannerTerminationCondition &ptc)

@@ -90,7 +90,7 @@ namespace ompl
         public:
             /** \brief Constructor, base sampler is uniform sampling, TODO: add option to use Gaussian sampling in the
              * future. */
-            SDCLValidStateSampler(const SpaceInformation *si, const PlannerPtr planner);
+            SDCLValidStateSampler(const SpaceInformation *si, const Planner* planner);
 
             ~SDCLValidStateSampler() override;
 
@@ -147,7 +147,7 @@ namespace ompl
             StateSamplerPtr sampler_;
 
             /** \brief The planner to get training data */
-            PlannerPtr planner_;
+            const Planner* planner_; // use raw pointer not shared_ptr to prevent call to destructor.
 
             /** \brief Current planner data */
             PlannerDataPtr plannerData_;
@@ -210,6 +210,8 @@ namespace ompl
             /** \brief upper and lower bound used in opt formulation */
             std::vector<double> upper_bound_;
             std::vector<double> lower_bound_;
+
+            SpaceInformationPtr sip_;
 
             /** \brief count the number of goal and start points. */
             unsigned int numOneClassPoints_{0};

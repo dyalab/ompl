@@ -37,7 +37,7 @@ bool isStateValid(const ob::State *state)
 // SDCL sampler
 ob::ValidStateSamplerPtr allocSDCLValidStateSampler(const ob::SpaceInformation *si, const ob::PlannerPtr planner)
 {
-    auto sampler(std::make_shared<ob::SDCLValidStateSampler>(si, planner));
+    auto sampler(std::make_shared<ob::SDCLValidStateSampler>(si, planner.get()));
     return sampler;
 }
 
@@ -84,7 +84,7 @@ bool solve(double duration)
     planner_->setProblemDefinition(pdef_);
 
     // We're making one sampler and by god its the only one we're using
-    ob::ValidStateSamplerPtr sampler(std::make_shared<ob::SDCLValidStateSampler>(si.get(), planner_));
+    ob::ValidStateSamplerPtr sampler(std::make_shared<ob::SDCLValidStateSampler>(si.get(), planner_.get()));
 
     auto allocSDCLValidStateSampler_partial = [&](const ob::SpaceInformation *si) { return sampler; };
 

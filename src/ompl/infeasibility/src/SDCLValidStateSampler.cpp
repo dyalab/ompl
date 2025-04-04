@@ -49,10 +49,9 @@ namespace ompl
     }  // namespace magic
 }  // namespace ompl
 
-ompl::base::SDCLValidStateSampler::SDCLValidStateSampler(const SpaceInformation *si, const PlannerPtr planner)
+ompl::base::SDCLValidStateSampler::SDCLValidStateSampler(const SpaceInformation *si, const Planner* planner)
   : ValidStateSampler(si)
   , sampler_(si->allocStateSampler())
-  , planner_(planner)
   , dim_(si_->getStateDimension())
   , size_of_smallest_training_set_(magic::MIN_TRAINING_SIZE)
   , delta_(si->getMaximumExtent() * magic::MARGIN_AS_SPACE_EXTENT_FRACTION)
@@ -60,12 +59,15 @@ ompl::base::SDCLValidStateSampler::SDCLValidStateSampler(const SpaceInformation 
   , lower_bound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low)
 {
     name_ = "SDCL"; 
+    planner_ = planner;
     SDCLPoints_.reset(new StateVec());
     virtualCfreePoints_.reset(new StateVec());
     collisionPoints_.reset(new StateVec());
     freePoints_.reset(new StateVec());
 
-    plannerData_ = std::make_shared<PlannerData>(planner_->getSpaceInformation());
+    sip_ = planner_->getSpaceInformation();
+
+    plannerData_ = std::make_shared<PlannerData>(sip_);
 
     params_.declareParam<unsigned int>(
         "size_of_smallest_training_set", [this](unsigned int size) { setSizeSmallestTrainingSet(size); },
@@ -102,7 +104,7 @@ void ompl::base::SDCLValidStateSampler::setManifoldType(std::string type)
     if (type == "BRF-SVM")
     {
         manifold_.reset(
-        new ompl::infeasibility::SVMManifold(planner_->getSpaceInformation(), si_->getStateDimension()));
+        new ompl::infeasibility::SVMManifold(sip_, si_->getStateDimension()));
     }
 }
 
@@ -295,7 +297,7 @@ void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph()
     for (unsigned int i = 0; i < start_size; i++)
     {
         start_tags.push_back(plannerData_->getStartVertex(i).getTag());
-        PlannerDataPtr subGraph(std::make_shared<PlannerData>(planner_->getSpaceInformation()));
+        PlannerDataPtr subGraph(std::make_shared<PlannerData>(sip_));
         plannerData_->extractReachable(plannerData_->getStartIndex(i), *subGraph);
         n_start_region_points += subGraph->numVertices();
         subGraph->clear();
@@ -304,7 +306,7 @@ void ompl::base::SDCLValidStateSampler::makeTrainingDataFromGraph()
     for (unsigned int i = 0; i < goal_size; i++)
     {
         goal_tags.push_back(plannerData_->getGoalVertex(i).getTag());
-        PlannerDataPtr subGraph(std::make_shared<PlannerData>(planner_->getSpaceInformation()));
+        PlannerDataPtr subGraph(std::make_shared<PlannerData>(sip_));
         plannerData_->extractReachable(plannerData_->getGoalIndex(i), *subGraph);
         n_goal_region_points += subGraph->numVertices();
         subGraph->clear();

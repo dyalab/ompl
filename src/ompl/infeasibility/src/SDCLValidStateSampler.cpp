@@ -104,7 +104,7 @@ void ompl::base::SDCLValidStateSampler::setManifoldType(std::string type)
     if (type == "BRF-SVM")
     {
         manifold_.reset(
-        new ompl::infeasibility::SVMManifold(sip_, si_->getStateDimension()));
+        new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
     }
 }
 
@@ -238,7 +238,9 @@ void ompl::base::SDCLValidStateSampler::generateSDCLSamples()
   
         // train RBF-kernel SVM with thunderSVM.
         start = timer.now();
+        manifoldMutex_.lock();
         bool success = manifold_->learnManifold(data_, classes_, numOneClassPoints_ + numOtherClassPoints_);
+        manifoldMutex_.unlock();
         stop = timer.now();
         std::chrono::duration<float> training_time = stop - start;
         trainingTime += training_time.count();
@@ -428,6 +430,9 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     // OMPL_INFORM("Thread pool for calculating manifold points has %d threads.", num_threads);
     boost::asio::thread_pool threadpool(num_threads - 4);
 
+    // save current curSDCLPointsCount_
+    int prevSDCLPointsCount_ = curSDCLPointsCount_;
+
     // loop to add thread pool
     for (int i = 0; i < num_collision_points; i++)
     {
@@ -439,6 +444,14 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     }
 
     threadpool.join();
+ 
+    // if no SDCL points are added, save the current manifold data. 
+    if (prevSDCLPointsCount_ == curSDCLPointsCount_)
+    {
+        manifoldPointsAllInCollision_ = true;
+    } else {
+        manifoldPointsAllInCollision_ = false;
+    }
 
     // OMPL_INFORM("There are %d collision points, %d training points", num_collision_points, num_free_points);
 }
@@ -446,7 +459,9 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
 void ompl::base::SDCLValidStateSampler::calManifoldPoints(const State* input_state)
 {
     State *res_state = si_->allocState();
-    bool success = manifold_->sampleManifold(input_state, res_state);
+    bool success = manifold_->sampleManifold(input_state, res_state, 
+                                             (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low,
+                                             (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high);
 
     if (success)
     {
@@ -463,3 +478,15 @@ void ompl::base::SDCLValidStateSampler::calManifoldPoints(const State* input_sta
         }
     }
 }
+
+// bool getAllCollisionManifold(ompl::infeasibility::Manifold* allCollisionManifold) 
+// {
+//     if (manifoldPointsAllInCollision_)
+//     {
+//         allCollisionManifold->copy(manifold_.get()); // todo: after learning, still sampling, and allCollisionManifold has not been updated. 
+//         return true;
+//     } else 
+//     {
+//         return false;
+//     }
+// }

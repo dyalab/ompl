@@ -48,6 +48,11 @@ namespace ompl
 {
     namespace infeasibility
     {
+        struct ModelData
+        {
+            // struct that saves model data. 
+        };
+
         class Manifold
         {
         public:
@@ -72,7 +77,7 @@ namespace ompl
             virtual bool learnManifold(float* data, float* classes, std::size_t data_size) = 0;
 
             /** \brief Get the space information this manifold is in */
-            virtual bool sampleManifold(const base::State *seed, base::State *res) = 0;
+            virtual bool sampleManifold(const base::State *seed, base::State *res, std::vector<double> lower_bounds, std::vector<double> upper_bounds) = 0;
 
         protected:
             /** \brief Name of the manifold */

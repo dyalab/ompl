@@ -114,9 +114,8 @@ int findClosestPoint(double *res, ompl::infeasibility::SVMModelData svm_data, st
     return result;
 }
 
-ompl::infeasibility::SVMManifold::SVMManifold(const base::SpaceInformationPtr si, std::size_t ambDim,
-                                              std::size_t coDim)
-  : Manifold("RBF-SVM", ambDim, coDim), si_(si)
+ompl::infeasibility::SVMManifold::SVMManifold(std::size_t ambDim, std::size_t coDim)
+  : Manifold("RBF-SVM", ambDim, coDim)
 {
     trainingSetup();
 }
@@ -274,7 +273,7 @@ void ompl::infeasibility::SVMManifold::saveModelData()
     #endif
 }
 
-bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State *seed, base::State *res)
+bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State *seed, base::State *res, std::vector<double> lower_bounds, std::vector<double> upper_bounds)
 {
     double res_data[ambDim_] = {};
     auto *rseed = static_cast<const base::RealVectorStateSpace::StateType *>(seed);
@@ -285,9 +284,7 @@ bool ompl::infeasibility::SVMManifold::sampleManifold(const base::State *seed, b
     }
 
     // opt to find closest point on manifold
-    int success = findClosestPoint(res_data, modelData_,
-                                   (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low,
-                                   (si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high);
+    int success = findClosestPoint(res_data, modelData_, lower_bounds, upper_bounds);
     auto *rres = static_cast<base::RealVectorStateSpace::StateType *>(res);
 
     for (unsigned int ii = 0; ii < ambDim_; ii++)

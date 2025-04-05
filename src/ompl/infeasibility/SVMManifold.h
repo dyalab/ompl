@@ -62,7 +62,7 @@ namespace ompl
 {
     namespace infeasibility
     {
-        struct SVMModelData
+        struct SVMModelData : ModelData
         {
             // struct that saves svm model data. 
             SVMModelData()
@@ -118,30 +118,22 @@ namespace ompl
         class SVMManifold : public ompl::infeasibility::Manifold
         {
         public:
-            SVMManifold(base::SpaceInformationPtr si, std::size_t ambDim, std::size_t coDim = 1);
+            SVMManifold(std::size_t ambDim, std::size_t coDim = 1);
 
             SVMManifold(const SVMManifold &source)
               : Manifold(source.name(), source.getAmbDim(), source.getCoDim())
-              , si_(source.getSpaceInformation())
               , modelData_(source.getModelData()){};
 
             ~SVMManifold();
 
             double evalManifold(const base::State *point) override;
             bool learnManifold(float* data, float* classes, std::size_t data_size) override;
-            bool sampleManifold(const base::State *seed, base::State *res) override;
+            bool sampleManifold(const base::State *seed, base::State *res, std::vector<double> lower_bounds, std::vector<double> upper_bounds) override;
 
             SVMModelData getModelData() const
             {
                 return modelData_;
             };
-
-            /** \brief Get the space information this manifold is in */
-            const base::SpaceInformationPtr getSpaceInformation() const
-            {
-                return si_;
-            };
-
         private:
 
             /** \brief setup training parameters */
@@ -149,7 +141,6 @@ namespace ompl
 
             /** \brief save model data output from svm library to SVMModelData */
             void saveModelData();
-            base::SpaceInformationPtr si_;
 
             SVMModelData modelData_; // saved model data
             // DataSet dataset_; // dataset for training

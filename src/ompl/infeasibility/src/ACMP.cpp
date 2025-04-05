@@ -68,8 +68,6 @@ og::ACMP::ACMP(const base::SpaceInformationPtr &si, double lambda, bool starStra
 
 og::ACMP::~ACMP()
 {
-    std::cout << "destroy ACMP" << std::endl;
-    // (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->endSDCLThread();
 }
 
 ompl::base::PlannerStatus og::ACMP::solve(const base::PlannerTerminationCondition &ptc)
@@ -183,6 +181,7 @@ ompl::base::PlannerStatus og::ACMP::solve(const base::PlannerTerminationConditio
 
 void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc) 
 {
+    
 
 }
 

@@ -70,20 +70,20 @@ namespace ompl
         /** \brief A state sampler that only samples valid states, detail method is in the
          * paper "Sample-Driven Connectivity Learning for Motion Planning
          * in Narrow Passages". */
-        class SolutionNonExistenceProofManifold : public SolutionNonExistenceProof
-        {
-        public:
-            SolutionNonExistenceProofManifold(SpaceInformationPtr si) 
-            : SolutionNonExistenceProof(si)
-            {
-                manifoldData_ = new ompl::infeasibility::SVMModelData();
-            }
-            ompl::infeasibility::SVMModelData *getSolutionNonExistenceProofManifold() {return manifoldData_;};
-            void setSolutionNonExistenceProofManifold(ompl::infeasibility::SVMModelData manifold) {manifoldData_->copy(manifold);};
+        // class SolutionNonExistenceProofManifold : public SolutionNonExistenceProof
+        // {
+        // public:
+        //     SolutionNonExistenceProofManifold(SpaceInformationPtr si) 
+        //     : SolutionNonExistenceProof(si)
+        //     {
+        //         manifold_ = new ompl::infeasibility::Manifold();
+        //     }
+        //     ompl::infeasibility::SVMModelData *getSolutionNonExistenceProofManifold() {return manifold_;};
+        //     void setSolutionNonExistenceProofManifold(ompl::infeasibility::Manifold manifold) {manifold_->copy(manifold);};
 
-        protected:
-            ompl::infeasibility::SVMModelData *manifoldData_;
-        };
+        // protected:
+        //     ompl::infeasibility::Manifold *manifold_;
+        // };
 
         class SDCLValidStateSampler : public ValidStateSampler
         {
@@ -135,6 +135,10 @@ namespace ompl
 
             /** \brief Set the learning method for the manifold */
             void setManifoldType(std::string type);
+            
+            /** \brief Get the lastest manifold that has all manifold points in collision*/
+            bool getAllCollisionManifold(ompl::infeasibility::Manifold* allCollisionManifold);
+
 
         protected:
             // using pt = std::vector<double>;
@@ -166,6 +170,9 @@ namespace ompl
 
             /** \brief count of used valid SDCL points*/
             std::atomic<unsigned int> usedSDCLPointsCount_{0};
+            
+            /** \brief true if all manifold points of the current manifold are in collision*/
+            std::atomic<bool> manifoldPointsAllInCollision_;
 
             /** \brief dimension of vector space */
             unsigned int dim_ = 0;
@@ -206,6 +213,9 @@ namespace ompl
 
             /** \brief Valid SDCL points mutex*/
             mutable std::mutex SDCLPointsMutex_;
+
+            /** \brief manifold mutex*/
+            mutable std::mutex manifoldMutex_;
 
             /** \brief upper and lower bound used in opt formulation */
             std::vector<double> upper_bound_;

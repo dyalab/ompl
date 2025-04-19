@@ -132,8 +132,6 @@ namespace ompl
             /** \brief algorihtm runing stats recoding data structure */
             proof_stats stats_ = {};
 
-            ob::ValidStateSamplerPtr SDCLSampler_;
-
             bool foundInfProof_{false};
 
             bool foundInfProof() const;

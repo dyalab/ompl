@@ -149,6 +149,11 @@ double ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
     return f - modelData_.b;
 }
 
+void ompl::infeasibility::SVMManifold::copyManifold(std::shared_ptr<ompl::infeasibility::Manifold>& srcManifold)
+{
+    modelData_.copy((dynamic_cast<ompl::infeasibility::SVMManifold*>(srcManifold.get()))->getModelData());
+}
+
 bool ompl::infeasibility::SVMManifold::learnManifold(float* data, float* classes, std::size_t data_size)
 {
     #if OMPL_HAVE_THUNDERSVM

@@ -61,6 +61,8 @@ og::ACMP::ACMP(const base::SpaceInformationPtr &si, double lambda, bool starStra
 {
     setName("ACMP");
     sampler_ = std::make_shared<ob::SDCLValidStateSampler>(si_.get(), dynamic_cast<ob::Planner*>(this));
+    (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->setSaveManifoldPoints(); // save manifold points for triangulation
+    // sampler_->setSaveManifoldPoints();
     // SDCLSampler_.reset(new ob::SDCLValidStateSampler(si_.get(), this));
     // auto allocSDCLValidStateSampler_partial = [&](const ob::SpaceInformation *si) { return SDCLSampler_; };
     // si_->setValidStateSamplerAllocator(allocSDCLValidStateSampler_partial);
@@ -124,12 +126,14 @@ ompl::base::PlannerStatus og::ACMP::solve(const base::PlannerTerminationConditio
     base::PlannerTerminationCondition ptcOrSolutionFound([this, &ptc] { return ptc || addedNewSolution(); });
     // construct new planner termination condition that fires when the given ptc is true, or an infeasibility proof is found
     base::PlannerTerminationCondition ptcOrInf([this, &ptc] { return ptc || foundInfProof(); });
+    // construct new planner termination condition that fires when the given ptc is true, or a solution is found, or an infeasibility proof is found
+    base::PlannerTerminationCondition ptcOrSolutionFoundOrInf([this, &ptc] { return ptc || addedNewSolution() || foundInfProof(); });
 
     std::thread slnThread([this, &ptcOrInf, &sol] { checkForSolution(ptcOrInf, sol); });
     // create inf thread to check the learned manifold in SDCL sampler
     std::thread infThread([this, &ptcOrSolutionFound] {checkManifold(ptcOrSolutionFound); });
 
-    constructRoadmap(ptcOrSolutionFound);
+    constructRoadmap(ptcOrSolutionFoundOrInf);
 
     // Ensure slnThread and infThread is ceased before exiting solve
     slnThread.join();
@@ -181,7 +185,7 @@ ompl::base::PlannerStatus og::ACMP::solve(const base::PlannerTerminationConditio
 
 void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc) 
 {
-    
+
 
 }
 

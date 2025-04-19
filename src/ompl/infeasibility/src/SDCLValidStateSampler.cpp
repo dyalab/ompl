@@ -61,6 +61,8 @@ ompl::base::SDCLValidStateSampler::SDCLValidStateSampler(const SpaceInformation 
     name_ = "SDCL"; 
     planner_ = planner;
     SDCLPoints_.reset(new StateVec());
+    manifoldPoints_.reset(new StateVec());
+    lastManifoldPoints_.reset(new StateVec());
     virtualCfreePoints_.reset(new StateVec());
     collisionPoints_.reset(new StateVec());
     freePoints_.reset(new StateVec());
@@ -83,6 +85,8 @@ ompl::base::SDCLValidStateSampler::~SDCLValidStateSampler()
 {
     endSDCLThread();
     clearStateVec(SDCLPoints_);
+    clearStateVec(manifoldPoints_);
+    clearStateVec(lastManifoldPoints_);
     clearStateVec(collisionPoints_);
     clearStateVec(virtualCfreePoints_);
     clearStateVec(freePoints_);
@@ -91,20 +95,21 @@ ompl::base::SDCLValidStateSampler::~SDCLValidStateSampler()
     plannerData_->clear();
 }
 
-void ompl::base::SDCLValidStateSampler::clearStateVec(std::shared_ptr<StateVec> vec)
+void ompl::base::SDCLValidStateSampler::clearStateVec(std::shared_ptr<StateVec>& vec, std::string name)
 {
     for (std::size_t i = 0; i < vec->size(); i++)
     {
         if ((*vec)[i] != nullptr) si_->freeState((*vec)[i]);
     }
+    vec.reset(new StateVec());
 }
 
 void ompl::base::SDCLValidStateSampler::setManifoldType(std::string type)
 {
     if (type == "BRF-SVM")
     {
-        manifold_.reset(
-        new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
+        manifold_.reset(new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
+        lastManifold_.reset(new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
     }
 }
 
@@ -244,6 +249,8 @@ void ompl::base::SDCLValidStateSampler::generateSDCLSamples()
         stop = timer.now();
         std::chrono::duration<float> training_time = stop - start;
         trainingTime += training_time.count();
+
+        clearStateVec(manifoldPoints_, "mani");
 
         // sample manifold points
         if (success)
@@ -423,6 +430,9 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     }
     collisionPointsMutex_.unlock();
 
+    // clear previous manifold points
+    clearStateVec(manifoldPoints_, "mani");
+
     int num_free_points = freePoints_->size();
 
     // start thread pool
@@ -448,7 +458,11 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     // if no SDCL points are added, save the current manifold data. 
     if (prevSDCLPointsCount_ == curSDCLPointsCount_)
     {
+        // (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData().print();
+        // if (manifoldPoints_->size() > 10) 
+        //     std::cout << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
         manifoldPointsAllInCollision_ = true;
+        saveManifoldData();
     } else {
         manifoldPointsAllInCollision_ = false;
     }
@@ -471,22 +485,34 @@ void ompl::base::SDCLValidStateSampler::calManifoldPoints(const State* input_sta
             SDCLPoints_->push_back(res_state);
             SDCLPointsMutex_.unlock();
             curSDCLPointsCount_++;
+            return;
         }
-        else
+        else if (saveManifoldPoints_)
         {
-            si_->freeState(res_state);
+            manifoldPointsMutex_.lock();
+            manifoldPoints_->push_back(res_state);
+            manifoldPointsMutex_.unlock();
+            return;
         }
     }
+    si_->freeState(res_state);
 }
 
-// bool getAllCollisionManifold(ompl::infeasibility::Manifold* allCollisionManifold) 
-// {
-//     if (manifoldPointsAllInCollision_)
-//     {
-//         allCollisionManifold->copy(manifold_.get()); // todo: after learning, still sampling, and allCollisionManifold has not been updated. 
-//         return true;
-//     } else 
-//     {
-//         return false;
-//     }
-// }
+void ompl::base::SDCLValidStateSampler::saveManifoldData() 
+{
+    // save model data
+    lastManifold_->copyManifold(manifold_);
+    // (dynamic_cast<ompl::infeasibility::SVMManifold*>(lastManifold_.get()))->getModelData().print();
+    // save manifold points
+    clearStateVec(lastManifoldPoints_);
+    lastManifoldPoints_.reset(new StateVec(manifoldPoints_->size(), nullptr));  // for sampling on the manifold
+    for (std::size_t i = 0; i < manifoldPoints_->size(); i++) 
+    {
+        (*lastManifoldPoints_)[i] = si_->allocState();
+        si_->copyState((*lastManifoldPoints_)[i], (*manifoldPoints_)[i]);
+    }
+    // if (manifoldPoints_->size() > 10) 
+    //     std::cout << (*lastManifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
+}
+
+// bool getLastManifold, and mutex for lastmanifold. 

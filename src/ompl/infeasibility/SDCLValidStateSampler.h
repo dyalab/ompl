@@ -70,21 +70,6 @@ namespace ompl
         /** \brief A state sampler that only samples valid states, detail method is in the
          * paper "Sample-Driven Connectivity Learning for Motion Planning
          * in Narrow Passages". */
-        // class SolutionNonExistenceProofManifold : public SolutionNonExistenceProof
-        // {
-        // public:
-        //     SolutionNonExistenceProofManifold(SpaceInformationPtr si) 
-        //     : SolutionNonExistenceProof(si)
-        //     {
-        //         manifold_ = new ompl::infeasibility::Manifold();
-        //     }
-        //     ompl::infeasibility::SVMModelData *getSolutionNonExistenceProofManifold() {return manifold_;};
-        //     void setSolutionNonExistenceProofManifold(ompl::infeasibility::Manifold manifold) {manifold_->copy(manifold);};
-
-        // protected:
-        //     ompl::infeasibility::Manifold *manifold_;
-        // };
-
         class SDCLValidStateSampler : public ValidStateSampler
         {
         public:
@@ -137,8 +122,13 @@ namespace ompl
             void setManifoldType(std::string type);
             
             /** \brief Get the lastest manifold that has all manifold points in collision*/
-            bool getAllCollisionManifold(ompl::infeasibility::Manifold* allCollisionManifold);
+            bool getLastManifold(ompl::infeasibility::Manifold* allCollisionManifold);
 
+            /** \brief Set to save manifold point each time sampleManifold is called successfully */
+            void setSaveManifoldPoints()
+            {
+                saveManifoldPoints_ = true;
+            }
 
         protected:
             // using pt = std::vector<double>;
@@ -193,8 +183,20 @@ namespace ompl
             /** \brief the learned manifold, in manifold class*/
             std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
 
-            /** \brief The sampler to build upon */
+            /** \brief the last learned manifold that has all manifold point in collision*/
+            std::shared_ptr<ompl::infeasibility::Manifold> lastManifold_;
+
+            /** \brief The CFree points on the manifold */
             std::shared_ptr<StateVec> SDCLPoints_;
+
+            /** \brief save manifold points if true.  */
+            bool saveManifoldPoints_ = false;
+
+            /** \brief The points on the manifold */
+            std::shared_ptr<StateVec> manifoldPoints_;
+
+            /** \brief The points on the last manifold */
+            std::shared_ptr<StateVec> lastManifoldPoints_;
 
             /** \brief collision points, saved when sampling, used in sampleManifoldPoints*/
             std::shared_ptr<StateVec> collisionPoints_;
@@ -216,6 +218,9 @@ namespace ompl
 
             /** \brief manifold mutex*/
             mutable std::mutex manifoldMutex_;
+
+            /** \brief manifold points mutex for saving to manifold points list from each different thread*/
+            mutable std::mutex manifoldPointsMutex_;
 
             /** \brief upper and lower bound used in opt formulation */
             std::vector<double> upper_bound_;
@@ -259,7 +264,10 @@ namespace ompl
             void sampleUniformWithMargin(State *state);
             
             /** \brief helper function to clear states in vector of states. */
-            void clearStateVec(std::shared_ptr<StateVec> vec);
+            void clearStateVec(std::shared_ptr<StateVec>& vec, std::string name="");
+            
+            /** \brief save the current manifold and manifold points. */
+            void saveManifoldData();
         };
     }  // namespace base
 }  // namespace ompl

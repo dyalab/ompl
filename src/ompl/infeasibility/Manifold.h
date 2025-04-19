@@ -72,6 +72,9 @@ namespace ompl
             };
             /** \brief evaluate the manifold at the given point */
             virtual double evalManifold(const base::State *point) = 0;
+            
+            /** \brief copy the source manifold */
+            virtual void copyManifold(std::shared_ptr<Manifold>& srcManifold) = 0;
 
             /** \brief train the manifold with planner data */
             virtual bool learnManifold(float* data, float* classes, std::size_t data_size) = 0;

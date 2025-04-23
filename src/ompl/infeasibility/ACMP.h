@@ -69,6 +69,7 @@
 
 #include <ompl/infeasibility/SVMManifold.h>
 #include "ompl/infeasibility/SDCLValidStateSampler.h"
+#include "ompl/infeasibility/triangulation.h"
 
 
 using namespace ompl;
@@ -148,7 +149,7 @@ namespace ompl
             std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
 
             /** \brief The points on the manifold */
-            std::shared_ptr<ob::SDCLValidStateSampler::StateVec> manifoldPoints_;
+            // std::shared_ptr<ob::SDCLValidStateSampler::StateVec> manifoldPoints_;
         };
     }
 }

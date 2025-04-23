@@ -61,6 +61,7 @@
 #include <nlopt.h>
 #include <ompl/infeasibility/Manifold.h>
 #include <ompl/infeasibility/SVMManifold.h>
+#include "ompl/infeasibility/triangulation.h"
 
 
 namespace ompl
@@ -129,7 +130,7 @@ namespace ompl
             }
             
             /** \brief Get the lastest manifold that has all manifold points in collision*/
-            bool getLastManifold(std::shared_ptr<ompl::infeasibility::Manifold> returnManifold, std::shared_ptr<StateVec> returnManifoldPoints);
+            bool getLastManifold(std::shared_ptr<ompl::infeasibility::Manifold>& returnManifold, float_tri*& returnManifoldPoints, std::size_t& numManifoldPoints);
 
             /** \brief Set to save manifold point each time sampleManifold is called successfully */
             void setSaveManifoldPoints()

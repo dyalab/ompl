@@ -189,20 +189,40 @@ void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc)
     {
         manifold_.reset(new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
     }
-    manifoldPoints_.reset(new ob::SDCLValidStateSampler::StateVec());
+    // manifoldPoints_.reset(new ob::SDCLValidStateSampler::StateVec());
+
+    float_tri* manifoldPoints_ = nullptr;
+    std::size_t numManifoldPoints = 0; 
 
     while (!ptc) {
-        bool res = (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->getLastManifold(manifold_, manifoldPoints_);
-        if (res)
+        // clean previous data
+        if (manifoldPoints_ != nullptr)
         {
-            std::cout << "ACMP side" << std::endl;
-            (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData().print();
-            // if (manifoldPoints_->size() > 10) 
+            free(manifoldPoints_); 
+            manifoldPoints_ = nullptr;
+        }
+
+        // copy manifold that has all manifold points in collision 
+        bool res = (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->getLastManifold(manifold_, manifoldPoints_, numManifoldPoints);
+
+        if (res) // there is a manifold with all manifold points in collision
+        {
+            // (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData().print();
+            // if (numManifoldPoints > 10) 
+            //     std::cout << "ACMP side" << manifoldPoints_[10 * 6 + 5] << std::endl;
             //     std::cout << "ACMP side" << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
+            
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
-    (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->clearStateVec(manifoldPoints_);
+
+    if (manifoldPoints_ != nullptr)
+    {
+        free(manifoldPoints_); 
+        manifoldPoints_ = nullptr;
+    }
+
+    // (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->clearStateVec(manifoldPoints_);
 }
 
 bool og::ACMP::foundInfProof() const

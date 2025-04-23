@@ -185,8 +185,24 @@ ompl::base::PlannerStatus og::ACMP::solve(const base::PlannerTerminationConditio
 
 void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc) 
 {
+    if ((dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->getManifoldType() == "BRF-SVM") 
+    {
+        manifold_.reset(new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
+    }
+    manifoldPoints_.reset(new ob::SDCLValidStateSampler::StateVec());
 
-
+    while (!ptc) {
+        bool res = (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->getLastManifold(manifold_, manifoldPoints_);
+        if (res)
+        {
+            std::cout << "ACMP side" << std::endl;
+            (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData().print();
+            // if (manifoldPoints_->size() > 10) 
+            //     std::cout << "ACMP side" << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+    (dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->clearStateVec(manifoldPoints_);
 }
 
 bool og::ACMP::foundInfProof() const

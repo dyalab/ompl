@@ -143,6 +143,12 @@ namespace ompl
             void printStat(std::string time_str);
 
             float lambda_ = 0.0;
+
+            /** \brief the learned manifold from sampler, in manifold class*/
+            std::shared_ptr<ompl::infeasibility::Manifold> manifold_;
+
+            /** \brief The points on the manifold */
+            std::shared_ptr<ob::SDCLValidStateSampler::StateVec> manifoldPoints_;
         };
     }
 }

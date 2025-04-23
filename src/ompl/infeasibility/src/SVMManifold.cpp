@@ -194,7 +194,7 @@ void print_null(const char *s) {};
 void ompl::infeasibility::SVMManifold::trainingSetup()
 {
     #if OMPL_HAVE_THUNDERSVM
-    OMPL_INFORM("Using ThunderSVM and GPU to train the manifold.");
+    // OMPL_INFORM("Using ThunderSVM and GPU to train the manifold.");
     thunderSVMModel_.reset(new SVC());
     thunderSVMParam_.kernel_type = SvmParam::RBF;
     thunderSVMParam_.degree = 3;
@@ -213,7 +213,7 @@ void ompl::infeasibility::SVMManifold::trainingSetup()
     el::Loggers::addFlag(el::LoggingFlag::HierarchicalLogging);
     el::Loggers::setLoggingLevel(el::Level::Unknown);
     #else
-    OMPL_INFORM("Using libsvm to train the manifold.");
+    // OMPL_INFORM("Using libsvm to train the manifold.");
     libSVMParam_.svm_type = C_SVC;
     libSVMParam_.kernel_type = RBF;
     libSVMParam_.degree = 3;

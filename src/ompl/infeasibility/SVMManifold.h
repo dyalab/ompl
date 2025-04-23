@@ -110,7 +110,6 @@ namespace ompl
             void print() const 
             {
                 std::cout << "Number of support vectors: " << num_vectors << coef[0] << vectors[8] << std::endl;
-
             }
             double b;
             int num_vectors;

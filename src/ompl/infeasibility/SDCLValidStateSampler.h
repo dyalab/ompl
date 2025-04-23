@@ -73,6 +73,8 @@ namespace ompl
         class SDCLValidStateSampler : public ValidStateSampler
         {
         public:
+            /** @brief A data structure for storing vector of points in SDCL part */
+            using StateVec = std::vector<State*>;
             /** \brief Constructor, base sampler is uniform sampling, TODO: add option to use Gaussian sampling in the
              * future. */
             SDCLValidStateSampler(const SpaceInformation *si, const Planner* planner);
@@ -120,9 +122,14 @@ namespace ompl
 
             /** \brief Set the learning method for the manifold */
             void setManifoldType(std::string type);
+
+            std::string getManifoldType()
+            {
+                return type_;
+            }
             
             /** \brief Get the lastest manifold that has all manifold points in collision*/
-            bool getLastManifold(ompl::infeasibility::Manifold* allCollisionManifold);
+            bool getLastManifold(std::shared_ptr<ompl::infeasibility::Manifold> returnManifold, std::shared_ptr<StateVec> returnManifoldPoints);
 
             /** \brief Set to save manifold point each time sampleManifold is called successfully */
             void setSaveManifoldPoints()
@@ -130,15 +137,16 @@ namespace ompl
                 saveManifoldPoints_ = true;
             }
 
+            /** \brief helper function to clear states in vector of states. */
+            void clearStateVec(std::shared_ptr<StateVec>& vec);
+
         protected:
             // using pt = std::vector<double>;
 
-            /** @brief A data structure for storing vector of points in SDCL part */
-            // using pvec = std::vector<std::vector<double>>;
-            using StateVec = std::vector<State*>;
-
             /** \brief The sampler to build upon */
             StateSamplerPtr sampler_;
+
+            std::string type_;
 
             /** \brief The planner to get training data */
             const Planner* planner_; // use raw pointer not shared_ptr to prevent call to destructor.
@@ -221,6 +229,9 @@ namespace ompl
 
             /** \brief manifold points mutex for saving to manifold points list from each different thread*/
             mutable std::mutex manifoldPointsMutex_;
+            
+            /** \brief last saved manifold mutex for saving and getting last manifold and last manifold points*/
+            mutable std::mutex lastManifoldMutex_;
 
             /** \brief upper and lower bound used in opt formulation */
             std::vector<double> upper_bound_;
@@ -262,9 +273,6 @@ namespace ompl
 
             /** \brief sample uniformly with virtual obstacle region and virutal free region */
             void sampleUniformWithMargin(State *state);
-            
-            /** \brief helper function to clear states in vector of states. */
-            void clearStateVec(std::shared_ptr<StateVec>& vec, std::string name="");
             
             /** \brief save the current manifold and manifold points. */
             void saveManifoldData();

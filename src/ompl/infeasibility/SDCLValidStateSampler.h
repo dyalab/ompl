@@ -61,7 +61,6 @@
 #include <nlopt.h>
 #include <ompl/infeasibility/Manifold.h>
 #include <ompl/infeasibility/SVMManifold.h>
-#include "ompl/infeasibility/triangulation.h"
 
 
 namespace ompl
@@ -100,13 +99,13 @@ namespace ompl
             /** \brief Get the size of the smallest training set for training the manifold */
             unsigned int getSizeSmallestTrainingSet() const
             {
-                return size_of_smallest_training_set_;
+                return sizeOfSmallestTrainingSet_;
             }
 
             /** \brief Set the size of the smallest training set for training the manifold */
             void setSizeSmallestTrainingSet(unsigned int size)
             {
-                size_of_smallest_training_set_ = size;
+                sizeOfSmallestTrainingSet_ = size;
             }
 
             /** \brief Get virtual obstacle region and free region margin */
@@ -126,7 +125,7 @@ namespace ompl
 
             std::string getManifoldType()
             {
-                return type_;
+                return manifold_->name();
             }
             
             /** \brief Get the lastest manifold that has all manifold points in collision*/
@@ -146,8 +145,6 @@ namespace ompl
 
             /** \brief The sampler to build upon */
             StateSamplerPtr sampler_;
-
-            std::string type_;
 
             /** \brief The planner to get training data */
             const Planner* planner_; // use raw pointer not shared_ptr to prevent call to destructor.
@@ -177,7 +174,7 @@ namespace ompl
             unsigned int dim_ = 0;
 
             /** \brief the size of the smallest allow training set size.*/
-            unsigned int size_of_smallest_training_set_;
+            unsigned int sizeOfSmallestTrainingSet_;
 
             /** \brief the margin for virtual obstacle region and virtual free region outside of the boundaries.*/
             double delta_;
@@ -235,8 +232,8 @@ namespace ompl
             mutable std::mutex lastManifoldMutex_;
 
             /** \brief upper and lower bound used in opt formulation */
-            std::vector<double> upper_bound_;
-            std::vector<double> lower_bound_;
+            std::vector<double> upperBound_;
+            std::vector<double> lowerBound_;
 
             SpaceInformationPtr sip_;
 

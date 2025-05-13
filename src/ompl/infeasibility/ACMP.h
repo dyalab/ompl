@@ -66,7 +66,7 @@
 #include <boost/graph/astar_search.hpp>
 #include <boost/property_map/vector_property_map.hpp>
 #include <boost/graph/copy.hpp>
-
+#include <ompl/infeasibility/Manifold.h>
 #include <ompl/infeasibility/SVMManifold.h>
 #include "ompl/infeasibility/SDCLValidStateSampler.h"
 #include "ompl/infeasibility/triangulation.h"
@@ -75,6 +75,7 @@
 using namespace ompl;
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
+namespace oi = ompl::infeasibility;
 
 
 struct proof_stats {

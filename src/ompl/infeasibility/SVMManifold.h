@@ -83,40 +83,69 @@ namespace ompl
                 coef = prev.coef;
                 vectors = prev.vectors;
             };
-            void copy(const SVMModelData &prev)
+            void copy(const ModelData* resource)
             {
-                b = prev.b;
-                num_vectors = prev.num_vectors;
-                gamma = prev.gamma;
-                features = prev.features;
+                const SVMModelData* prev = dynamic_cast<const SVMModelData*>(resource);
+                b = prev->b;
+                num_vectors = prev->num_vectors;
+                gamma = prev->gamma;
+                features = prev->features;
 
                 if (!vectors)
                     delete[] vectors;
                 if (!coef)
                     delete[] coef;
 
-                coef = new double[num_vectors];
-                vectors = new double[num_vectors * features];
+                coef = new float_tri[num_vectors];
+                vectors = new float_tri[num_vectors * features];
                 for (int i = 0; i < num_vectors; i++)
                 {
                     for (int j = 0; j < features; j++)
                     {
-                        vectors[i * features + j] = prev.vectors[i * features + j];
+                        vectors[i * features + j] = prev->vectors[i * features + j];
                     }
-                    coef[i] = prev.coef[i];
+                    coef[i] = prev->coef[i];
                 }
 
             };
+
+            float_tri eval(float_tri* x) override
+            {
+                float_tri f = 0;
+                float_tri dists_square[num_vectors];
+
+                for (int k = 0; k < num_vectors; k++)
+                {
+                    dists_square[k] = 0;
+                    for (int i = 0; i < features; i++)
+                    {
+                        dists_square[k] += pow(x[i] - vectors[k * features + i], 2);
+                    }
+                    f += coef[k] * exp(-gamma * dists_square[k]);
+                }
+
+                return f - b;
+            }
+
+            void clear() 
+            {
+                if (!vectors)
+                    delete[] vectors;
+
+                if (!coef)
+                    delete[] coef;
+            }
+
             void print() const 
             {
                 std::cout << "Number of support vectors: " << num_vectors << coef[0] << vectors[8] << std::endl;
             }
-            double b;
+            float_tri b;
             int num_vectors;
             int features;
-            double gamma;
-            double *coef;
-            double *vectors;
+            float_tri gamma;
+            float_tri *coef;
+            float_tri *vectors;
         };
 
         class SVMManifold : public ompl::infeasibility::Manifold
@@ -124,21 +153,27 @@ namespace ompl
         public:
             SVMManifold(std::size_t ambDim, std::size_t coDim = 1);
 
-            SVMManifold(const SVMManifold &source)
-              : Manifold(source.name(), source.getAmbDim(), source.getCoDim())
-              , modelData_(source.getModelData()){};
+            // SVMManifold(const SVMManifold &source)
+            //   : Manifold(source.name(), source.getAmbDim(), source.getCoDim())
+            //   , modelData_(source.getModelData()){};
 
             ~SVMManifold();
 
             double evalManifold(const base::State *point) override;
+             // __host__ __device__ float_tri evalManifold(const float_tri *point) override;
             void copyManifold(std::shared_ptr<ompl::infeasibility::Manifold>& srcManifold) override;
             bool learnManifold(float* data, float* classes, std::size_t data_size) override;
             bool sampleManifold(const base::State *seed, base::State *res, std::vector<double> lower_bounds, std::vector<double> upper_bounds) override;
 
-            SVMModelData getModelData() const
+            ModelData* getModelData() override
             {
                 return modelData_;
             };
+
+            std::string name() const override
+            {
+                return name_;
+            }
 
         private:
 
@@ -148,7 +183,7 @@ namespace ompl
             /** \brief save model data output from svm library to SVMModelData */
             void saveModelData();
 
-            SVMModelData modelData_; // saved model data
+            SVMModelData* modelData_; // saved model data
             // DataSet dataset_; // dataset for training
             #if OMPL_HAVE_THUNDERSVM
             SvmParam thunderSVMParam_; // parameter for svm training

@@ -185,14 +185,15 @@ ompl::base::PlannerStatus og::ACMP::solve(const base::PlannerTerminationConditio
 
 void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc) 
 {
-    if ((dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->getManifoldType() == "BRF-SVM") 
+    if ((dynamic_cast<ob::SDCLValidStateSampler*>(sampler_.get()))->getManifoldType() == "RBF-SVM") 
     {
         manifold_.reset(new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
     }
     // manifoldPoints_.reset(new ob::SDCLValidStateSampler::StateVec());
 
     float_tri* manifoldPoints_ = nullptr;
-    std::size_t numManifoldPoints = 0; 
+    std::size_t numManifoldPoints = 0;
+    // std::shared_ptr<oi::GPUCoxeterTriangulation> triangulation = std::make_shared<oi::GPUCoxeterTriangulation>(lambda_, si_->getStateDimension());
 
     while (!ptc) {
         // clean previous data
@@ -207,13 +208,16 @@ void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc)
 
         if (res) // there is a manifold with all manifold points in collision
         {
-            // (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData().print();
+            // (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData()->print();
             // if (numManifoldPoints > 10) 
             //     std::cout << "ACMP side" << manifoldPoints_[10 * 6 + 5] << std::endl;
             //     std::cout << "ACMP side" << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
             
             std::this_thread::sleep_for(std::chrono::seconds(1));
+
+
         }
+
     }
 
     if (manifoldPoints_ != nullptr)

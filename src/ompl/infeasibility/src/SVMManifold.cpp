@@ -49,13 +49,13 @@ namespace ompl
 double objfunc(unsigned int n, const double *x, double *grad, void *data)
 {
     ompl::infeasibility::SVMModelData *d = (ompl::infeasibility::SVMModelData *)data;
-    double b = d->b;
+    float_tri b = d->b;
     int num_vectors = d->num_vectors;
-    double *coef = d->coef;
-    double *vectors = d->vectors;
-    double gamma = d->gamma;
-    double f = 0;
-    double dists_square[num_vectors];
+    float_tri *coef = d->coef;
+    float_tri *vectors = d->vectors;
+    float_tri gamma = d->gamma;
+    float_tri f = 0;
+    float_tri dists_square[num_vectors];
     for (int k = 0; k < num_vectors; k++)
     {
         dists_square[k] = 0;
@@ -73,25 +73,25 @@ double objfunc(unsigned int n, const double *x, double *grad, void *data)
             grad[i] = 0;
             for (int k = 0; k < num_vectors; k++)
             {
-                grad[i] += coef[k] * exp(-gamma * dists_square[k]) * (-gamma) * 2 * (x[i] - vectors[n * k + i]);
+                grad[i] += (double)coef[k] * exp(-gamma * dists_square[k]) * (-gamma) * 2 * (x[i] - vectors[n * k + i]);
             }
         }
         for (unsigned int i = 0; i < n; i++)
         {
-            grad[i] = 2 * (f - b) * grad[i];
+            grad[i] = (double)2 * (f - b) * grad[i];
         }
     }
 
-    return (f - b) * (f - b);
+    return (double)(f - b) * (f - b);
 }
 
-int findClosestPoint(double *res, ompl::infeasibility::SVMModelData svm_data, std::vector<double> lower_bound,
+int findClosestPoint(double *res, ompl::infeasibility::SVMModelData* svm_data, std::vector<double> lower_bound,
                      std::vector<double> upper_bound)
 {
     nlopt_opt opt;
-    int n = svm_data.features;
+    int n = svm_data->features;
     opt = nlopt_create(NLOPT_LD_SLSQP, n);
-    nlopt_set_min_objective(opt, objfunc, &svm_data);
+    nlopt_set_min_objective(opt, objfunc, svm_data);
     double maxtime = 0.1;
     nlopt_set_maxtime(opt, maxtime);
     nlopt_set_ftol_rel(opt, 1e-3);
@@ -114,44 +114,61 @@ int findClosestPoint(double *res, ompl::infeasibility::SVMModelData svm_data, st
     return result;
 }
 
+
 ompl::infeasibility::SVMManifold::SVMManifold(std::size_t ambDim, std::size_t coDim)
   : Manifold("RBF-SVM", ambDim, coDim)
 {
     trainingSetup();
+    name_ = "RBF-SVM";
+
+    // // unified memory for model data.
+    // cudaMallocManaged(&modelData_, sizeof(ompl::infeasibility::SVMModelData));
+    modelData_ = new ompl::infeasibility::SVMModelData();
 }
 
 ompl::infeasibility::SVMManifold::~SVMManifold() {
-    if (!modelData_.vectors)
-        delete[] modelData_.vectors;
-
-    if (!modelData_.coef)
-        delete[] modelData_.coef;
+    modelData_->clear();
+    delete modelData_;
 }
 
 double ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
 {
-    double f = 0;
-    double dists_square[modelData_.num_vectors];
-    int features = ambDim_;
+    // double f = 0;
+    // double dists_square[modelData_->num_vectors];
+    // int features = ambDim_;
+    float_tri x[ambDim_];
 
     auto *rpoint = static_cast<const base::RealVectorStateSpace::StateType *>(point);
-
-    for (int k = 0; k < modelData_.num_vectors; k++)
+    for (int i = 0; i < ambDim_; i++) 
     {
-        dists_square[k] = 0;
-        for (int i = 0; i < features; i++)
-        {
-            dists_square[k] += pow(rpoint->values[i] - modelData_.vectors[k * features + i], 2);
-        }
-        f += modelData_.coef[k] * exp(-modelData_.gamma * dists_square[k]);
+        x[i] = (float_tri)rpoint->values[i];
     }
 
-    return f - modelData_.b;
+
+    // for (int k = 0; k < modelData_->num_vectors; k++)
+    // {
+    //     dists_square[k] = 0;
+    //     for (int i = 0; i < features; i++)
+    //     {
+    //         dists_square[k] += pow(rpoint->values[i] - modelData_->vectors[k * features + i], 2);
+    //     }
+    //     f += modelData_->coef[k] * exp(-modelData_->gamma * dists_square[k]);
+    // }
+
+    // return f - modelData_->b;
+
+    return (double)modelData_->eval(x);
 }
+
+// float_tri ompl::infeasibility::SVMManifold::evalManifold(const float_tri *point)
+// {
+//     return (double)modelData_->eval(point);
+// }
+
 
 void ompl::infeasibility::SVMManifold::copyManifold(std::shared_ptr<ompl::infeasibility::Manifold>& srcManifold)
 {
-    modelData_.copy((dynamic_cast<ompl::infeasibility::SVMManifold*>(srcManifold.get()))->getModelData());
+    modelData_->copy((dynamic_cast<ompl::infeasibility::SVMManifold*>(srcManifold.get()))->getModelData());
 }
 
 bool ompl::infeasibility::SVMManifold::learnManifold(float* data, float* classes, std::size_t data_size)
@@ -237,44 +254,46 @@ void ompl::infeasibility::SVMManifold::trainingSetup()
 
 void ompl::infeasibility::SVMManifold::saveModelData()
 {
-    if (!modelData_.vectors)
-        delete[] modelData_.vectors;
+    if (!modelData_->vectors)
+        delete[] modelData_->vectors;
 
-    if (!modelData_.coef)
-        delete[] modelData_.coef;
+    if (!modelData_->coef)
+        delete[] modelData_->coef;
 
     #if OMPL_HAVE_THUNDERSVM
     const double *rho_data = (thunderSVMModel_->get_rho()).host_data();
     DataSet::node2d vectors = thunderSVMModel_->svs();
     const double *coef_data = (thunderSVMModel_->get_coef()).host_data();
 
-    modelData_.b = rho_data[0];
-    modelData_.num_vectors = thunderSVMModel_->total_sv();
-    modelData_.gamma = thunderSVMParam_.gamma;
-    modelData_.features = ambDim_;
-    modelData_.coef = new double[modelData_.num_vectors];
-    modelData_.vectors = new double[modelData_.num_vectors * ambDim_];
-    for (int i = 0; i < modelData_.num_vectors; i++)
+    modelData_->b = rho_data[0];
+    modelData_->num_vectors = thunderSVMModel_->total_sv();
+    modelData_->gamma = thunderSVMParam_.gamma;
+    modelData_->features = ambDim_;
+    // cudaMallocManaged(&modelData_->coef, sizeof(float_tri) * modelData_->num_vectors);
+    // cudaMallocManaged(&modelData_->vectors, sizeof(float_tri) * modelData_->num_vectors * ambDim_);
+    modelData_->coef = new float_tri[modelData_->num_vectors];
+    modelData_->vectors = new float_tri[modelData_->num_vectors * ambDim_];
+    for (int i = 0; i < modelData_->num_vectors; i++)
     {
         for (int j = 0; j < ambDim_; j++)
         {
-            modelData_.vectors[i * ambDim_ + j] = vectors[i][j].value;
+            modelData_->vectors[i * ambDim_ + j] = (float_tri)vectors[i][j].value;
         }
-        modelData_.coef[i] = coef_data[i];
+        modelData_->coef[i] = (float_tri)coef_data[i];
     }
     #else
-    modelData_.b = libSVMModel_->rho[0];
-    modelData_.num_vectors = svm_get_nr_sv(libSVMModel_);
-    modelData_.features = ambDim_;
-    modelData_.vectors = new double[modelData_.num_vectors * ambDim_];
-    modelData_.coef = new double[modelData_.num_vectors];
-    for (int i = 0; i < modelData_.num_vectors; i++) {
+    modelData_->b = libSVMModel_->rho[0];
+    modelData_->num_vectors = svm_get_nr_sv(libSVMModel_);
+    modelData_->features = ambDim_;
+    modelData_->vectors = new float_tri[modelData_->num_vectors * ambDim_];
+    modelData_->coef = new float_tri[modelData_->num_vectors];
+    for (int i = 0; i < modelData_->num_vectors; i++) {
         for (int j = 0; j < ambDim_; j++) {
-            modelData_.vectors[i * ambDim_ + j] = libSVMModel_->SV[i][j].value;
+            modelData_->vectors[i * ambDim_ + j] = (float_tri)libSVMModel_->SV[i][j].value;
         }
-        modelData_.coef[i] = libSVMModel_->sv_coef[0][i];
+        modelData_->coef[i] = (float_tri)libSVMModel_->sv_coef[0][i];
     }
-    modelData_.gamma = libSVMParam_.gamma;
+    modelData_->gamma = libSVMParam_.gamma;
     #endif
 }
 

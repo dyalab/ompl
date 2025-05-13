@@ -53,10 +53,10 @@ ompl::base::SDCLValidStateSampler::SDCLValidStateSampler(const SpaceInformation 
   : ValidStateSampler(si)
   , sampler_(si->allocStateSampler())
   , dim_(si_->getStateDimension())
-  , size_of_smallest_training_set_(magic::MIN_TRAINING_SIZE)
+  , sizeOfSmallestTrainingSet_(magic::MIN_TRAINING_SIZE)
   , delta_(si->getMaximumExtent() * magic::MARGIN_AS_SPACE_EXTENT_FRACTION)
-  , upper_bound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high)
-  , lower_bound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low)
+  , upperBound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).high)
+  , lowerBound_((si_->getStateSpace()->as<base::RealVectorStateSpace>()->getBounds()).low)
 {
     name_ = "SDCL"; 
     planner_ = planner;
@@ -106,8 +106,7 @@ void ompl::base::SDCLValidStateSampler::clearStateVec(std::shared_ptr<StateVec>&
 
 void ompl::base::SDCLValidStateSampler::setManifoldType(std::string type)
 {
-    type_ = type;
-    if (type_ == "BRF-SVM")
+    if (type == "BRF-SVM")
     {
         manifold_.reset(new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
         lastManifold_.reset(new ompl::infeasibility::SVMManifold(si_->getStateDimension()));
@@ -179,7 +178,7 @@ void ompl::base::SDCLValidStateSampler::sampleUniformWithMargin(State *state)
 {
     auto *rstate = static_cast<RealVectorStateSpace::StateType *>(state);
     for (unsigned int i = 0; i < dim_; ++i)  // sample with virtual C regions
-        rstate->values[i] = rng_.uniformReal(lower_bound_[i] - delta_ * 2, upper_bound_[i] + delta_ * 2);
+        rstate->values[i] = rng_.uniformReal(lowerBound_[i] - delta_ * 2, upperBound_[i] + delta_ * 2);
 }
 
 bool ompl::base::SDCLValidStateSampler::outOfBound(const State *state)
@@ -190,13 +189,13 @@ bool ompl::base::SDCLValidStateSampler::outOfBound(const State *state)
     // check whether the state is out of bound. 
     for (unsigned int i = 0; i < dim_; i++)
     {
-        if (rstate->values[i] < lower_bound_[i] - delta_ || rstate->values[i] > upper_bound_[i] + delta_)
+        if (rstate->values[i] < lowerBound_[i] - delta_ || rstate->values[i] > upperBound_[i] + delta_)
         {
             // in virtual Cfree region
             saveVirtualCfreePoints(state);
             return true;
         }
-        else if (rstate->values[i] < lower_bound_[i] || rstate->values[i] > upper_bound_[i])
+        else if (rstate->values[i] < lowerBound_[i] || rstate->values[i] > upperBound_[i])
         {
             // in virtual collision region
             saveCollisionPoints(state);
@@ -239,10 +238,10 @@ void ompl::base::SDCLValidStateSampler::generateSDCLSamples()
 
         // wait until there is a reasonable number of samples.
         if (numOneClassPoints_ == 0 || numOtherClassPoints_ == 0 ||
-            numOneClassPoints_ + numOtherClassPoints_ < size_of_smallest_training_set_)
+            numOneClassPoints_ + numOtherClassPoints_ < sizeOfSmallestTrainingSet_)
             continue;
   
-        // train RBF-kernel SVM with thunderSVM.
+        // train manifold.
         start = timer.now();
         manifoldMutex_.lock();
         bool success = manifold_->learnManifold(data_, classes_, numOneClassPoints_ + numOtherClassPoints_);
@@ -460,8 +459,8 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     if (prevSDCLPointsCount_ == curSDCLPointsCount_)
     {
         // (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData().print();
-        if (manifoldPoints_->size() > 10) 
-            std::cout << "after sampling on manifold " << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
+        // if (manifoldPoints_->size() > 10) 
+        //     std::cout << "after sampling on manifold " << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
         manifoldPointsAllInCollision_ = true;
         saveManifoldData();
     } else {
@@ -504,9 +503,9 @@ void ompl::base::SDCLValidStateSampler::saveManifoldData()
 {
     std::lock_guard<std::mutex> _(lastManifoldMutex_);
     // save model data
-    lastManifold_->copyManifold(manifold_);
+    lastManifold_->getModelData()->copy(manifold_->getModelData());
     // std::cout << "saved in sampler " << std::endl;
-    // (dynamic_cast<ompl::infeasibility::SVMManifold*>(lastManifold_.get()))->getModelData().print();
+    // (dynamic_cast<ompl::infeasibility::SVMManifold*>(lastManifold_.get()))->getModelData()->print();
     // save manifold points
     clearStateVec(lastManifoldPoints_);
     lastManifoldPoints_.reset(new StateVec(manifoldPoints_->size(), nullptr));  // for sampling on the manifold
@@ -527,7 +526,8 @@ bool ompl::base::SDCLValidStateSampler::getLastManifold(std::shared_ptr<ompl::in
     if (lastManifoldPoints_->size() == 0) return false;
 
     // get manifold
-    returnManifold->copyManifold(lastManifold_);
+    returnManifold->getModelData()->copy(lastManifold_->getModelData());
+    
     // get manifold points
     // clearStateVec(returnManifoldPoints);
     // returnManifoldPoints.reset(new StateVec(lastManifoldPoints_->size(), nullptr));  // for sampling on the manifold

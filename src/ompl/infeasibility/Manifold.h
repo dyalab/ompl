@@ -41,6 +41,7 @@
 #include <ompl/base/State.h>
 #include "ompl/base/PlannerData.h"
 #include "ompl/base/Planner.h"
+#include "ompl/infeasibility/basic.h"
 
 #include <string>
 
@@ -51,6 +52,10 @@ namespace ompl
         struct ModelData
         {
             // struct that saves model data. 
+            virtual float_tri eval(float_tri* point) = 0;
+            virtual void clear() = 0;
+            virtual void copy(const ModelData* resouce) = 0;
+            virtual void print() const = 0;
         };
 
         class Manifold
@@ -66,12 +71,13 @@ namespace ompl
             {
                 return coDim_;
             };
-            std::string name() const
-            {
-                return name_;
-            };
+            virtual std::string name() const = 0;
+
             /** \brief evaluate the manifold at the given point */
             virtual double evalManifold(const base::State *point) = 0;
+
+            // /** \brief evaluate the manifold at the given point */
+            // virtual float_tri evalManifold(const float_tri *point) = 0;
             
             /** \brief copy the source manifold */
             virtual void copyManifold(std::shared_ptr<Manifold>& srcManifold) = 0;
@@ -81,6 +87,8 @@ namespace ompl
 
             /** \brief Get the space information this manifold is in */
             virtual bool sampleManifold(const base::State *seed, base::State *res, std::vector<double> lower_bounds, std::vector<double> upper_bounds) = 0;
+
+            virtual ModelData* getModelData() = 0;
 
         protected:
             /** \brief Name of the manifold */

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(ompl VERSION 1.6.0 LANGUAGES CXX)
+project(ompl VERSION 1.6.0 LANGUAGES CXX CUDA)
 set(OMPL_ABI_VERSION 17)
 
 # set the default build type
@@ -189,6 +189,12 @@ endif()
 set(OMPL_EXTENSION_SDCL 0)
 if (NLOPT_FOUND)
     set(OMPL_EXTENSION_SDCL 1)
+endif()
+
+set(OMPL_EXTENSION_INF 0)
+if (OMPL_EXTENSION_SDCL AND CUDA_FOUND)
+    include_directories(${CUDA_INCLUDE_DIRS})
+    set(OMPL_EXTENSION_INF 1)
 endif()
 
 # R is needed for running Planner Arena locally

@@ -193,7 +193,7 @@ void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc)
 
     float_tri* manifoldPoints_ = nullptr;
     std::size_t numManifoldPoints = 0;
-    // std::shared_ptr<oi::GPUCoxeterTriangulation> triangulation = std::make_shared<oi::GPUCoxeterTriangulation>(lambda_, si_->getStateDimension());
+    std::shared_ptr<oi::GPUCoxeterTriangulation> triangulation = std::make_shared<oi::GPUCoxeterTriangulation>(lambda_, si_->getStateDimension());
 
     while (!ptc) {
         // clean previous data
@@ -212,6 +212,7 @@ void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc)
             // if (numManifoldPoints > 10) 
             //     std::cout << "ACMP side" << manifoldPoints_[10 * 6 + 5] << std::endl;
             //     std::cout << "ACMP side" << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
+            triangulation->triangulate(manifold_, manifoldPoints_, numManifoldPoints);
             
             std::this_thread::sleep_for(std::chrono::seconds(1));
 

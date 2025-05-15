@@ -69,7 +69,7 @@
 #include <ompl/infeasibility/Manifold.h>
 #include <ompl/infeasibility/SVMManifold.h>
 #include "ompl/infeasibility/SDCLValidStateSampler.h"
-#include "ompl/infeasibility/triangulation.h"
+#include "ompl/infeasibility/triangulation/triangulation.h"
 
 
 using namespace ompl;

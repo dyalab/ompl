@@ -41,6 +41,15 @@ if (OMPL_EXTENSION_SDCL)
     endif()
 endif()
 
+if (OMPL_EXTENSION_INF)
+    set(CUDA_PROPAGATE_HOST_FLAGS ON)
+    set(CUDA_SEPARABLE_COMPILATION OFF)
+    set(CUDA_ARCHITECTURES "89;89")
+    add_definitions(-DEIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS)
+    file(GLOB_RECURSE OMPL_INF_SOURCE_CODE infeasibility/*.cu)
+    file(GLOB_RECURSE OMPL_INF_EXTENSION_HEADERS infeasibility/triangulation/*.h)
+endif()
+
 source_group("OMPL Source" FILES "${OMPL_SOURCE_CODE}")
 source_group("OMPL Headers" FILES "${OMPL_HEADERS}")
 
@@ -67,6 +76,14 @@ if (OMPL_EXTENSION_SDCL)
     if (OMPL_HAVE_THUNDERSVM)
         target_link_libraries(ompl ${THUNDERSVM_LIBRARIES})
     endif()
+endif()
+
+# infeasibility proof related GPU library
+if (OMPL_EXTENSION_INF)
+    add_library(cuda_triangulation_lib STATIC ${OMPL_INF_SOURCE_CODE})
+    set_target_properties(cuda_triangulation_lib PROPERTIES CUDA_ARCHITECTURES "89")
+    target_include_directories(cuda_triangulation_lib PUBLIC "infeasibility/")
+    target_link_libraries(ompl cuda_triangulation_lib)
 endif()
 
 if (MSVC)

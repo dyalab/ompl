@@ -1,4 +1,4 @@
-#include "triangulation.h"
+#include "ompl/infeasibility/triangulation/triangulation.h"
 
 Matrix root_matrix(unsigned d) {
     Matrix cartan(Matrix::Identity(d, d));
@@ -18,9 +18,9 @@ Matrix root_matrix(unsigned d) {
 }
 
 
-ompl::infeasibility::GPUCoxeterTriangulation::GPUCoxeterTriangulation(float_tri lambda, const int dim)
-: lambda_(lambda),
-: dim_(dim)
+ompl::infeasibility::GPUCoxeterTriangulation::GPUCoxeterTriangulation(const float_tri lambda, const int dim)
+: lambda_(lambda)
+, dim_(dim)
 {
     // match dimension
     assert(dim_ == NN);
@@ -31,8 +31,8 @@ ompl::infeasibility::GPUCoxeterTriangulation::GPUCoxeterTriangulation(float_tri 
     coxeter_.matrixInverse_ = coxeter_.matrix_.inverse();
 
     // copy coxeter triangulation to device
-    cudaMalloc(&coxeter_d_, sizeof(oi::CoxeterTri));
-    cudaMemcpy(coxeter_d_, &cox_tr, sizeof(oi::CoxeterTri), cudaMemcpyHostToDevice);
+    cudaMalloc(&coxeter_d_, sizeof(CoxeterTri));
+    cudaMemcpy(coxeter_d_, &coxeter_, sizeof(CoxeterTri), cudaMemcpyHostToDevice);
 
 }
 
@@ -44,17 +44,24 @@ ompl::infeasibility::GPUCoxeterTriangulation::~GPUCoxeterTriangulation()
 
 
 void ompl::infeasibility::GPUCoxeterTriangulation::triangulate(std::shared_ptr<ompl::infeasibility::Manifold> manifold, 
-                                                               float_tri* manifoldPoints_, std::size_t numManifoldPoints, 
-                                                               int& num_intersections, int& num_full_simplices)
+                                                               float_tri* manifoldPoints_, std::size_t numManifoldPoints)
 {
-    // copy seed points
-    cudaMalloc(&manifoldPoints_d_, sizeof(float_tri) * dim * numManifoldPoints);
-    cudaMemcpy(manifoldPoints_d_, manifoldPoints_, sizeof(float_tri) * dim * numManifoldPoints, cudaMemcpyHostToDevice);
+    // copy seed points to device
+    cudaMalloc(&manifoldPoints_d_, sizeof(float_tri) * dim_ * numManifoldPoints);
+    cudaMemcpy(manifoldPoints_d_, manifoldPoints_, sizeof(float_tri) * dim_ * numManifoldPoints, cudaMemcpyHostToDevice);
     std::cout << "Total number of seeds, " << numManifoldPoints << std::endl;
 
-    // copy model data
+    // copy model data to device
     ModelData* modelData_ = manifold->getModelData();
     float_tri test[dim_] = {0};
-    modelData_.eval(test);
+    modelData_->eval(test);
+    // modelData_->print();
+    // if (numManifoldPoints > 10) 
+    //     std::cout << "triangulation side" << manifoldPoints_[10 * 6 + 5] << std::endl;
+    if (manifold->name() == "RBF-SVM")
+    {
+        cudaMalloc(&modelData_d_, sizeof(SVMModelData));
+        // copy to pointer, use modeldata member pointer to copy. 
+    }
 }
 

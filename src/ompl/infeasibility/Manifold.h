@@ -41,7 +41,7 @@
 #include <ompl/base/State.h>
 #include "ompl/base/PlannerData.h"
 #include "ompl/base/Planner.h"
-#include "ompl/infeasibility/basic.h"
+#include "ompl/infeasibility/triangulation/basic.h"
 
 #include <string>
 

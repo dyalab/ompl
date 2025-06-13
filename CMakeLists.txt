@@ -171,6 +171,7 @@ if (THUNDERSVM_FOUND AND CUDA_FOUND)
     include_directories(SYSTEM "${THUNDERSVM_INCLUDE_DIRS}")
     link_directories(${THUNDERSVM_LIBRARY_DIRS})
 endif()
+set(OMPL_HAVE_THUNDERSVM 0)
 
 message(STATUS "Use thundersvm: ${USE_THUNDERSVM}\n")
 

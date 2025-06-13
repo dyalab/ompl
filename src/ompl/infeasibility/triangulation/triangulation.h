@@ -28,7 +28,7 @@
 typedef unsigned int KeyType;
 const KeyType kEmpty_tri = std::numeric_limits<KeyType>::max();
 
-constexpr int NN = 5;
+constexpr int NN = 6;
 
 using Matrix = Eigen::Matrix<float_tri, NN, NN>; // need to use fixed size matrix in device code. 
 using Vector = Eigen::Matrix<float_tri, NN, 1>;
@@ -144,13 +144,18 @@ namespace ompl
     		~GPUCoxeterTriangulation();
     		void triangulate(std::shared_ptr<ompl::infeasibility::Manifold> manifold, float_tri* manifoldPoints_, std::size_t numManifoldPoints);
     	private:
+    		void copyModelData2Device(const ompl::infeasibility::SVMModelData* source);
     		int dim_;
     		float_tri lambda_;
     		// coxeter triangulation elements
     		CoxeterTri coxeter_;
-    		CoxeterTri* coxeter_d_; // coxeter triangulation in device
-    		float_tri* manifoldPoints_d_;
-    		ompl::infeasibility::ModelData* modelData_d_;
+    		CoxeterTri* coxeter_d_; // coxeter triangulation on device
+    		// // manifold point, on device
+    		float_tri* manifoldPoints_d_; 
+    		// model data, on device
+    		ompl::infeasibility::SVMModelData* modelData_d_; 
+    		float_tri* coef_d_;
+    		float_tri* vectors_d_;
     	};
     }
 }

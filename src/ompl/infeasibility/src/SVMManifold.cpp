@@ -121,9 +121,13 @@ ompl::infeasibility::SVMManifold::SVMManifold(std::size_t ambDim, std::size_t co
     trainingSetup();
     name_ = "RBF-SVM";
 
-    // // unified memory for model data.
-    // cudaMallocManaged(&modelData_, sizeof(ompl::infeasibility::SVMModelData));
     modelData_ = new ompl::infeasibility::SVMModelData();
+
+    #if OMPL_HAVE_THUNDERSVM
+    OMPL_INFORM("Using ThunderSVM and GPU to train the manifold.");
+    #else
+    OMPL_INFORM("Using libsvm to train the manifold.");
+    #endif
 }
 
 ompl::infeasibility::SVMManifold::~SVMManifold() {
@@ -144,27 +148,8 @@ double ompl::infeasibility::SVMManifold::evalManifold(const base::State *point)
         x[i] = (float_tri)rpoint->values[i];
     }
 
-
-    // for (int k = 0; k < modelData_->num_vectors; k++)
-    // {
-    //     dists_square[k] = 0;
-    //     for (int i = 0; i < features; i++)
-    //     {
-    //         dists_square[k] += pow(rpoint->values[i] - modelData_->vectors[k * features + i], 2);
-    //     }
-    //     f += modelData_->coef[k] * exp(-modelData_->gamma * dists_square[k]);
-    // }
-
-    // return f - modelData_->b;
-
     return (double)modelData_->eval(x);
 }
-
-// float_tri ompl::infeasibility::SVMManifold::evalManifold(const float_tri *point)
-// {
-//     return (double)modelData_->eval(point);
-// }
-
 
 void ompl::infeasibility::SVMManifold::copyManifold(std::shared_ptr<ompl::infeasibility::Manifold>& srcManifold)
 {
@@ -211,7 +196,6 @@ void print_null(const char *s) {};
 void ompl::infeasibility::SVMManifold::trainingSetup()
 {
     #if OMPL_HAVE_THUNDERSVM
-    // OMPL_INFORM("Using ThunderSVM and GPU to train the manifold.");
     thunderSVMModel_.reset(new SVC());
     thunderSVMParam_.kernel_type = SvmParam::RBF;
     thunderSVMParam_.degree = 3;
@@ -230,7 +214,6 @@ void ompl::infeasibility::SVMManifold::trainingSetup()
     el::Loggers::addFlag(el::LoggingFlag::HierarchicalLogging);
     el::Loggers::setLoggingLevel(el::Level::Unknown);
     #else
-    // OMPL_INFORM("Using libsvm to train the manifold.");
     libSVMParam_.svm_type = C_SVC;
     libSVMParam_.kernel_type = RBF;
     libSVMParam_.degree = 3;

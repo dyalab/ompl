@@ -169,8 +169,9 @@ void ompl::base::SDCLValidStateSampler::endSDCLThread()
         sdclThreadEnded_ = true;
         sdclThreadStarted_ = false;
         SDCLThread_.join();
-        OMPL_INFORM("SDCL sampling ended. \nTotal time to setup training data: %f \nTotal time for training: \
-                %f \nTotal time for sampling on the manifold: %f ", makeTrainingDataTime, trainingTime, samplingTime);
+        OMPL_INFORM("SDCL sampling ended. \nTotal time to setup training data: %f \nTotal time for training: "
+                    "%f \nTotal time for sampling on the manifold: %f \nTotal manifold points used: %d \n", 
+                    makeTrainingDataTime, trainingTime, samplingTime, usedSDCLPointsCount_.load());
     }
 }
 
@@ -458,7 +459,7 @@ void ompl::base::SDCLValidStateSampler::sampleManifoldPoints()
     // if no SDCL points are added, save the current manifold data. 
     if (prevSDCLPointsCount_ == curSDCLPointsCount_)
     {
-        // (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData().print();
+        (dynamic_cast<ompl::infeasibility::SVMManifold*>(manifold_.get()))->getModelData()->print();
         // if (manifoldPoints_->size() > 10) 
         //     std::cout << "after sampling on manifold " << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
         manifoldPointsAllInCollision_ = true;

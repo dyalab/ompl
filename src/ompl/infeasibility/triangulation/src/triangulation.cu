@@ -17,6 +17,32 @@ Matrix root_matrix(unsigned d) {
     return result;
 }
 
+__device__ float_tri manifold_eval(const ompl::infeasibility::SVMModelData* modelData_d, float_tri* point) {
+    int num_vectors = modelData_d->num_vectors;
+    float_tri f = 0;
+    float_tri dists_square = 0;
+
+    for(int k = 0; k < num_vectors; k++){
+        dists_square = 0;
+        for(int i = 0; i < NN; i ++){
+            dists_square += powf(point[i] - modelData_d->vectors[NN*k+i], 2);
+        }
+        f += modelData_d->coef[k] * expf(-modelData_d->gamma * dists_square);
+    }
+    // printf("offset, %f\n", modelData_d->vectors[25]);
+    return f - modelData_d->b;
+}
+
+__global__ void print_test(const ompl::infeasibility::SVMModelData* modelData_d)
+{
+    unsigned int threadid = blockIdx.x*blockDim.x + threadIdx.x;
+    if (threadid < 1) {
+        printf("gpu model data: %f %f %d\n", modelData_d->coef[0], modelData_d->vectors[8], modelData_d->features);
+        float_tri test[NN] = {1, 2, 3, 4, 5, 6};
+        printf("gpu model eval: %f \n", manifold_eval(modelData_d, test));
+    }
+}
+
 
 ompl::infeasibility::GPUCoxeterTriangulation::GPUCoxeterTriangulation(const float_tri lambda, const int dim)
 : lambda_(lambda)
@@ -39,8 +65,26 @@ ompl::infeasibility::GPUCoxeterTriangulation::GPUCoxeterTriangulation(const floa
 ompl::infeasibility::GPUCoxeterTriangulation::~GPUCoxeterTriangulation()
 {
     cudaFree(coxeter_d_);
+    cudaFree(coef_d_);
+    cudaFree(vectors_d_);
+    cudaFree(modelData_d_);
+    cudaFree(manifoldPoints_d_);
 }
 
+void ompl::infeasibility::GPUCoxeterTriangulation::copyModelData2Device(const SVMModelData* source)
+{
+    int num_vectors = source->num_vectors;
+
+    cudaMalloc(&modelData_d_, sizeof(SVMModelData));
+    cudaMalloc(&coef_d_, sizeof(float_tri) * num_vectors);
+    cudaMalloc(&vectors_d_, sizeof(float_tri) * num_vectors * NN);
+    
+    cudaMemcpy(modelData_d_, source, sizeof(SVMModelData), cudaMemcpyHostToDevice);
+    cudaMemcpy(coef_d_, source->coef, sizeof(float_tri) * num_vectors, cudaMemcpyHostToDevice);
+    cudaMemcpy(vectors_d_, source->vectors, sizeof(float_tri) * num_vectors * NN, cudaMemcpyHostToDevice);
+    cudaMemcpy(&(modelData_d_->coef), &coef_d_, sizeof(float_tri*), cudaMemcpyHostToDevice);
+    cudaMemcpy(&(modelData_d_->vectors), &vectors_d_, sizeof(float_tri*), cudaMemcpyHostToDevice);
+}
 
 
 void ompl::infeasibility::GPUCoxeterTriangulation::triangulate(std::shared_ptr<ompl::infeasibility::Manifold> manifold, 
@@ -49,19 +93,17 @@ void ompl::infeasibility::GPUCoxeterTriangulation::triangulate(std::shared_ptr<o
     // copy seed points to device
     cudaMalloc(&manifoldPoints_d_, sizeof(float_tri) * dim_ * numManifoldPoints);
     cudaMemcpy(manifoldPoints_d_, manifoldPoints_, sizeof(float_tri) * dim_ * numManifoldPoints, cudaMemcpyHostToDevice);
-    std::cout << "Total number of seeds, " << numManifoldPoints << std::endl;
+    // std::cout << "Total number of seeds, " << numManifoldPoints << std::endl;
 
     // copy model data to device
-    ModelData* modelData_ = manifold->getModelData();
-    float_tri test[dim_] = {0};
-    modelData_->eval(test);
+    ompl::infeasibility::ModelData* modelData = manifold->getModelData();
+    float_tri test[dim_] = {1, 2, 3, 4, 5, 6};
+    std:: cout << "cpu eval " << modelData->eval(test) << std::endl;
     // modelData_->print();
     // if (numManifoldPoints > 10) 
     //     std::cout << "triangulation side" << manifoldPoints_[10 * 6 + 5] << std::endl;
-    if (manifold->name() == "RBF-SVM")
-    {
-        cudaMalloc(&modelData_d_, sizeof(SVMModelData));
-        // copy to pointer, use modeldata member pointer to copy. 
-    }
+    copyModelData2Device(dynamic_cast<const SVMModelData*>(modelData));
+    print_test<<<1, 1>>>(modelData_d_);
+
 }
 

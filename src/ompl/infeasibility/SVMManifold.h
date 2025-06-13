@@ -83,9 +83,9 @@ namespace ompl
                 coef = prev.coef;
                 vectors = prev.vectors;
             };
-            void copy(const ModelData* resource)
+            void copy(const ModelData* source)
             {
-                const SVMModelData* prev = dynamic_cast<const SVMModelData*>(resource);
+                const SVMModelData* prev = dynamic_cast<const SVMModelData*>(source);
                 b = prev->b;
                 num_vectors = prev->num_vectors;
                 gamma = prev->gamma;
@@ -138,7 +138,7 @@ namespace ompl
 
             void print() const 
             {
-                std::cout << "Number of support vectors: " << num_vectors << coef[0] << vectors[8] << std::endl;
+                std::cout << "Number of support vectors: " << num_vectors << " "<< coef[0] << " " << vectors[8] << " " << features << std::endl;
             }
             float_tri b;
             int num_vectors;
@@ -160,7 +160,6 @@ namespace ompl
             ~SVMManifold();
 
             double evalManifold(const base::State *point) override;
-             // __host__ __device__ float_tri evalManifold(const float_tri *point) override;
             void copyManifold(std::shared_ptr<ompl::infeasibility::Manifold>& srcManifold) override;
             bool learnManifold(float* data, float* classes, std::size_t data_size) override;
             bool sampleManifold(const base::State *seed, base::State *res, std::vector<double> lower_bounds, std::vector<double> upper_bounds) override;

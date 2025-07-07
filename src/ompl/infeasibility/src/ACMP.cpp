@@ -212,7 +212,7 @@ void og::ACMP::checkManifold(const base::PlannerTerminationCondition &ptc)
             // if (numManifoldPoints > 10) 
             //     std::cout << "ACMP side" << manifoldPoints_[10 * 6 + 5] << std::endl;
             //     std::cout << "ACMP side" << (*manifoldPoints_)[10]->as<base::RealVectorStateSpace::StateType>()->values[5] << std::endl;
-            triangulation->triangulate(manifold_, manifoldPoints_, numManifoldPoints);
+            triangulation->triangulate(manifold_, manifoldPoints_, numManifoldPoints, ptc);
             
             std::this_thread::sleep_for(std::chrono::seconds(1));
 

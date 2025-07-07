@@ -142,20 +142,39 @@ namespace ompl
     	public:
     		GPUCoxeterTriangulation(const float_tri lambda, const int dim);
     		~GPUCoxeterTriangulation();
-    		void triangulate(std::shared_ptr<ompl::infeasibility::Manifold> manifold, float_tri* manifoldPoints_, std::size_t numManifoldPoints);
+    		void triangulate(std::shared_ptr<ompl::infeasibility::Manifold> manifold, float_tri* manifoldPoints_, 
+    			             std::size_t numManifoldPoints, const ompl::base::PlannerTerminationCondition &ptc);
     	private:
     		void copyModelData2Device(const ompl::infeasibility::SVMModelData* source);
+
+    		void locateEdges(const ompl::base::PlannerTerminationCondition &ptc);
+
     		int dim_;
+    		
     		float_tri lambda_;
+
     		// coxeter triangulation elements
-    		CoxeterTri coxeter_;
     		CoxeterTri* coxeter_d_; // coxeter triangulation on device
-    		// // manifold point, on device
-    		float_tri* manifoldPoints_d_; 
+
+    		// manifold point, on device
+    		float_tri* manifoldPoints_d_;
+
+    		// number of manifold points
+    		int numManifoldPoints_;
+
     		// model data, on device
     		ompl::infeasibility::SVMModelData* modelData_d_; 
-    		float_tri* coef_d_;
+
+    		float_tri* coef_d_;  // kept available for clean deletion
     		float_tri* vectors_d_;
+            
+            // hashset
+    		KeyType* hashset_d_;
+    		int hashsetSize_;
+
+    		// hashed edges
+    		EdgePoint* hashedEdges_;
+    		int numHashedEdges_;
     	};
     }
 }

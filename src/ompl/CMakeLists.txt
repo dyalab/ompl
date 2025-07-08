@@ -46,7 +46,7 @@ if (OMPL_EXTENSION_INF)
     set(CUDA_SEPARABLE_COMPILATION OFF)
     set(CUDA_ARCHITECTURES "89;89")
     add_definitions(-DEIGEN_PERMANENTLY_DISABLE_STUPID_WARNINGS)
-    file(GLOB_RECURSE OMPL_INF_SOURCE_CODE infeasibility/*.cu)
+    file(GLOB_RECURSE OMPL_INF_SOURCE_CODE infeasibility/triangulation/src/*.cu)
     file(GLOB_RECURSE OMPL_INF_EXTENSION_HEADERS infeasibility/triangulation/*.h)
 endif()
 

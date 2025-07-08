@@ -13,7 +13,6 @@
 #include <limits.h>
 #include <Eigen/Eigenvalues>
 #include <Eigen/SVD>
-#include <thrust/sort.h>
 #include <cassert>
 #include <unordered_set>
 #include <queue>
@@ -22,9 +21,6 @@
 #include <ompl/infeasibility/SVMManifold.h>
 #include <ompl/infeasibility/Manifold.h>
 
-
-// namespace oi = ompl::infeasibility;
-// typedef float float_tri; // float type for triangulation
 typedef unsigned int KeyType;
 const KeyType kEmpty_tri = std::numeric_limits<KeyType>::max();
 
@@ -133,6 +129,18 @@ struct TriRes {
 	float_tri* md_coef;
 };
 
+Matrix root_matrix(unsigned d);
+
+void launchLocateSimplex(const CoxeterTri* coxeter_d_, const float_tri* manifoldPoints_d_, const int numManifoldPoints_, FullSimplex* fullSimplices);
+
+void launchGetSimplexEdges(const FullSimplex* fullSimplices, EdgePoint* eps, const int numManifoldPoints_);
+
+void launchGetIntersections(const ompl::infeasibility::SVMModelData* modelData_d_, const CoxeterTri* coxeter_d_, EdgePoint* eps, const int numEdges);
+
+void launchHashEdges(KeyType* hashset_d_, const EdgePoint* eps, const int numEdges,  const int hashsetSize_, KeyType* numHashedges_d);
+
+void launchSaveHashEdges(KeyType* hashset_d_, KeyType* numHashedges_d, const int hashsetSize_, const EdgePoint* eps, EdgePoint* hashedEdges_);
+
 namespace ompl
 {
     namespace infeasibility
@@ -178,23 +186,5 @@ namespace ompl
     	};
     }
 }
-
-// void freeGPU(FullSimplexPoints* fsps);
-// void freeGPU(EdgePoint* eps);
-// void freeGPU(Edgee* eps);
-// void freeGPU(Vertexx* eps);
-// void freeGPU(TriRes* res);
-
-// float_tri* tri_intersections(const ModelData& md, const float_tri lambda, const std::vector<std::vector<float_tri>>& seeds, 
-//                           const int N, VectorXf& offset, int& num_intersections, int& num_full_simplices);
-
-// float_tri* batch_triangulation(FullSimplexPoints* full_fsps, 
-//                                const int start_fs, const int end_fs, int& num_batch_intersections, const int batch_resolution,
-//                                const Edgee* decompose_edges, const Vertexx* decompose_vertices, 
-//                                const int num_decompose_edges, const int num_decompose_vertices, 
-//                                const CoxeterTri* d_cox, const ModelData* d_md, const int num_intersection_multiple);
-
-// DecomposeData* decompose_edge_representation(const int batch_relustion, int& num_decompose_edges, int& num_decompose_vertices);
-
 
 #endif

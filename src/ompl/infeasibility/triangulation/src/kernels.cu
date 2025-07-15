@@ -524,3 +524,242 @@ void launchSaveHashEdges(KeyType* hashset_d_, KeyType* numHashedges_d, const int
     cudaMemcpy(&numHashedges_h, numHashedges_d, sizeof(int), cudaMemcpyDeviceToHost);
     printf("GPU iterated the hashset in %f ms, a total of %d edges.\n", milliseconds, numHashedges_h);
 }
+
+__constant__ int order_set_22[4] = {0, 1, 1, 0};
+__constant__ int order_set_partition_22[2] = {1, 1};
+
+__constant__ int order_set_32[18] = {0, 1, 2, 2, 0, 1, 1, 0, 2, 0, 2, 1, 0, 1, 2, 1, 2, 0};
+__constant__ int order_set_partition_32[6] = {2, 1, 1, 2, 1, 2};
+
+__constant__ int order_set_42[56] = {0, 1, 2, 3, 3, 0, 1, 2, 2, 0, 1, 3, 0, 1, 3, 2, 0, 1, 2, 3, 2, 3, 0, 1, 1, 0, 2, 3, 0, 2, 3, 1, 0, 2, 1, 3, 1, 3, 0, 2, 1, 2, 0, 3, 0, 3, 1, 2, 0, 1, 2, 3, 1, 2, 3, 0};
+__constant__ int order_set_partition_42[14] = {3, 1, 1, 3, 2, 2, 1, 3, 2, 2, 2, 2, 1, 3};
+
+__constant__ int order_set_52[150] = {0, 1, 2, 3, 4, 4, 0, 1, 2, 3, 3, 0, 1, 2, 4, 0, 1, 2, 4, 3, 0, 1, 2, 3, 4, 3, 4, 0, 1, 2, 2, 0, 1, 3, 4, 0, 1, 3, 4, 2, 0, 1, 3, 2, 4, 2, 4, 0, 1, 3, 2, 3, 0, 1, 4, 0, 1, 4, 2, 3, 0, 1, 2, 3, 4, 2, 3, 4, 0, 1, 1, 0, 2, 3, 4, 0, 2, 3, 4, 1, 0, 2, 3, 1, 4, 1, 4, 0, 2, 3, 1, 3, 0, 2, 4, 0, 2, 4, 1, 3, 0, 2, 1, 3, 4, 1, 3, 4, 0, 2, 1, 2, 0, 3, 4, 0, 3, 4, 1, 2, 0, 3, 1, 2, 4, 1, 2, 4, 0, 3, 1, 2, 3, 0, 4, 0, 4, 1, 2, 3, 0, 1, 2, 3, 4, 1, 2, 3, 4, 0};
+__constant__ int order_set_partition_52[30] = {4, 1, 1, 4, 3, 2, 1, 4, 3, 2, 2, 3, 2, 3, 1, 4, 3, 2, 2, 3, 2, 3, 2, 3, 2, 3, 3, 2, 1, 4};
+
+__constant__ int order_set_62[372] = {0, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 0, 1, 0, 2, 3, 4, 5, 0, 2, 3, 4, 5, 1, 2, 0, 1, 3, 4, 5, 0, 1, 3, 4, 5, 2, 
+                                      3, 0, 1, 2, 4, 5, 0, 1, 2, 4, 5, 3, 4, 0, 1, 2, 3, 5, 0, 1, 2, 3, 5, 4, 5, 0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 5, 
+                                      0, 1, 2, 3, 4, 5, 2, 3, 4, 5, 0, 1, 0, 2, 1, 3, 4, 5, 1, 3, 4, 5, 0, 2, 0, 3, 1, 2, 4, 5, 1, 2, 4, 5, 0, 3,
+                                      0, 4, 1, 2, 3, 5, 1, 2, 3, 5, 0, 4, 0, 5, 1, 2, 3, 4, 1, 2, 3, 4, 0, 5, 1, 2, 0, 3, 4, 5, 0, 3, 4, 5, 1, 2,
+                                      1, 3, 0, 2, 4, 5, 0, 2, 4, 5, 1, 3, 1, 4, 0, 2, 3, 5, 0, 2, 3, 5, 1, 4, 1, 5, 0, 2, 3, 4, 0, 2, 3, 4, 1, 5,
+                                      2, 3, 0, 1, 4, 5, 0, 1, 4, 5, 2, 3, 2, 4, 0, 1, 3, 5, 0, 1, 3, 5, 2, 4, 2, 5, 0, 1, 3, 4, 0, 1, 3, 4, 2, 5,
+                                      3, 4, 0, 1, 2, 5, 0, 1, 2, 5, 3, 4, 3, 5, 0, 1, 2, 4, 0, 1, 2, 4, 3, 5, 4, 5, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5,
+                                      0, 1, 2, 3, 4, 5, 0, 1, 3, 2, 4, 5, 0, 1, 4, 2, 3, 5, 0, 1, 5, 2, 3, 4, 0, 2, 3, 1, 4, 5, 0, 2, 4, 1, 3, 5,
+                                      0, 2, 5, 1, 3, 4, 0, 3, 4, 1, 2, 5, 0, 3, 5, 1, 2, 4, 0, 4, 5, 1, 2, 3, 1, 2, 3, 0, 4, 5, 1, 2, 4, 0, 3, 5,
+                                      1, 2, 5, 0, 3, 4, 1, 3, 4, 0, 2, 5, 1, 3, 5, 0, 2, 4, 1, 4, 5, 0, 2, 3, 2, 3, 4, 0, 1, 5, 2, 3, 5, 0, 1, 4,
+                                      2, 4, 5, 0, 1, 3, 3, 4, 5, 0, 1, 2};
+__constant__ int order_set_partition_62[62] = {1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 
+                                               2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 2, 4, 
+                                               3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+__constant__ int order_set_size[6] = {-1, 2, 6, 14, 30, 62};
+__constant__ int no_change[7] = {0, 1, 2, 3, 4, 5, 6};
+
+__device__ int order_set_partition(int idx, int d, int* set) {
+    int* order_set_partition;
+    int* order_set;
+
+    if (idx >= order_set_size[d-1]) return -1;
+
+    if (d == 2) {
+        order_set_partition = order_set_partition_22;
+        order_set = order_set_22;
+    }
+    if (d == 3) {
+        order_set_partition = order_set_partition_32;
+        order_set = order_set_32;
+    }
+    if (d == 4) {
+        order_set_partition = order_set_partition_42;
+        order_set = order_set_42;
+    }
+    if (d == 5) {
+        order_set_partition = order_set_partition_52;
+        order_set = order_set_52;
+    }
+    if (d == 6) {
+        order_set_partition = order_set_partition_62;
+        order_set = order_set_62;
+    }
+
+    // if (idx >= order_set_size[d-1]) return -1;
+    for (int i = 0; i < NN; i++) {
+        if (i < d) set[i] = order_set[d * idx + i];
+        else set[i] = -1;
+    }
+    return order_set_partition[idx];
+}
+
+__device__ void copy_cof(EdgeCoface* source, EdgeCoface* des) {
+    for (int i = 0; i < NN; i++) { 
+        des->vertex_[i] = source->vertex_[i];
+    }
+    for (int i = 0; i < NN + 3; i++) {
+        des->partitions_[i] = source->partitions_[i];
+    }
+    des->second_start = source->second_start;
+    des->third_start = source->third_start;
+}
+
+__global__ void getCoface(int last_added_num_hashedges, int search_start_index, const EdgePoint* hash_eps, int* num_cofs, EdgeCoface* cofs){
+    unsigned int threadid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadid < last_added_num_hashedges)
+    {
+        int sep = 0;
+        int set[NN] = {};
+        EdgeCoface cof;
+        int partition_idx = 0;
+        EdgePoint cur_edge = hash_eps[search_start_index + threadid];
+        bool on_first_partition = true;
+        bool on_second_partition = false;
+        if (cur_edge.second_start - 1 == 1) {
+            on_first_partition = false;
+            on_second_partition = true;
+        }
+
+        int* part1_start;
+        int* part2_start;
+        int* part3_start;
+        int part1_size;
+        int part2_size;
+        int part3_size;
+        int part1_offset;
+        int part2_offset;
+        int part3_offset;
+
+        int t = 0; // index of NN in second partition of the edge.
+        for (int j = 0; j < NN + 2 - cur_edge.second_start; j++) {
+            if (cur_edge.partitions_[cur_edge.second_start + j] == NN) {
+                t = j;
+                break;
+            }
+        }
+
+        int cof_count = 0;
+        int num_new_edges = 0;
+
+        while (on_first_partition || on_second_partition) {
+            for (int i = 0; i < NN; i++) cof.vertex_[i] = cur_edge.vertex_[i];
+            if (on_first_partition) {
+                int dim = cur_edge.second_start - 1; // size of first partition.
+                sep = order_set_partition(partition_idx, dim, set);
+                if (sep == -1) {
+                    // printf("here %d\n", dim);
+                    if (NN + 2 - cur_edge.second_start != 1) on_second_partition = true;
+                    partition_idx = 0;
+                    on_first_partition = false;
+                    continue;
+                }
+                part1_start = set;
+                part1_size = sep;
+                part1_offset = 0;
+                part2_start = set+sep;
+                part2_size = dim - sep;
+                part2_offset = 0;
+                part3_start = no_change;
+                part3_size = NN + 2 - cur_edge.second_start;
+                part3_offset = cur_edge.second_start;
+                partition_idx++;
+            }
+
+            if (on_second_partition) {
+                int dim = NN + 2 - cur_edge.second_start;
+                sep = order_set_partition(partition_idx, dim, set);
+                if (sep == -1) {
+                    on_second_partition = false;
+                    break;
+                }
+                int u = 0;
+                int rec = 0;
+                for (int i = 0; i < dim; i++) {
+                    if (set[i] == t) {
+                        rec = i;
+                        break;
+                    }
+                } 
+                if (rec >= sep) u = 1;
+                else u = 0;
+
+                if (u == 0) {
+                    part1_start = set + sep;
+                    part1_size = dim - sep;
+                    part1_offset = cur_edge.second_start;
+                    part2_start = no_change;
+                    part2_size = cur_edge.second_start - 1;
+                    part2_offset = 0;
+                    part3_start = set;
+                    part3_size = sep;
+                    part3_offset = cur_edge.second_start;
+                } else {
+                    part1_start = no_change;
+                    part1_size = cur_edge.second_start - 1;
+                    part1_offset = 0;
+                    part2_start = set;
+                    part2_size = sep;
+                    part2_offset = cur_edge.second_start;
+                    part3_start = set + sep;
+                    part3_size = dim - sep;
+                    part3_offset = cur_edge.second_start;
+                }
+                if (u == 0) {
+                    for (int b = 0; b < part1_size; b++) {
+                        cof.vertex_[cur_edge.partitions_[part1_start[b] + part1_offset]]--;
+                    }
+                }
+                partition_idx++;
+            }
+
+            cof_count++;
+
+            int i = 0;
+
+            for (int b = 0; b < part1_size; b++, i++) {
+                // printf("part1 size %d, cur_idx %d \n", part1_size, part1_start[b] + part1_offset);
+                cof.partitions_[i] = cur_edge.partitions_[part1_start[b] + part1_offset];
+            }
+            cof.partitions_[i] = -1;
+            i++;
+            cof.second_start = i;
+            for (int b = 0; b < part2_size; b++, i++) {
+                // printf("part2 size %d, cur_idx %d \n", part2_size, part2_start[b] + part2_offset);
+                cof.partitions_[i] = cur_edge.partitions_[part2_start[b] + part2_offset];
+            }
+
+            cof.partitions_[i] = -1;
+            i++;
+            cof.third_start = i;
+            for (int b = 0; b < part3_size; b++, i++) {
+                // printf("part3 size %d, cur_idx %d \n", part3_size, part3_start[b] + part3_offset);
+                cof.partitions_[i] = cur_edge.partitions_[part3_start[b] + part3_offset];
+            }
+
+            int size = atomicAdd(num_cofs, 1);
+            copy_cof(&cof, cofs+size);
+        }
+
+    }
+}
+
+void launchGetCoface(int lastAddedNumHashedEdges, int searchStartIndex, const EdgePoint* hashedEdges_, int* numCofs_d, EdgeCoface* cofs_d)
+{
+    int mingridsize = 0;
+    int gridsize = 0;
+    int threadblocksize = 0;
+    float milliseconds = 0;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+
+    cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, getCoface, 0, 0);
+    gridsize = (lastAddedNumHashedEdges + threadblocksize - 1) / threadblocksize;
+    getCoface<<<gridsize, threadblocksize>>>(lastAddedNumHashedEdges, searchStartIndex, hashedEdges_, numCofs_d, cofs_d);
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&milliseconds, start, stop);
+
+    int numCofs_h = 0;
+    cudaMemcpy(&numCofs_h, numCofs_d, sizeof(int), cudaMemcpyDeviceToHost);
+    printf("GPU found %d cofaces in %f ms \n", numCofs_h, milliseconds);
+}

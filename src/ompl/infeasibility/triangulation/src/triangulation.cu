@@ -83,7 +83,8 @@ void ompl::infeasibility::GPUCoxeterTriangulation::triangulate(std::shared_ptr<o
     // locate starting intersection edges from seed points.
     locateEdges(ptc);
 
-    //
+    // search for all edges intersecting with the manifold.
+    searchEdges(ptc);
 
     // safeCudaFree(coxeter_d_);
     // safeCudaFree(coef_d_);
@@ -137,5 +138,32 @@ void ompl::infeasibility::GPUCoxeterTriangulation::locateEdges(const ompl::base:
     // clean up
     cudaFree(eps);
     cudaFree(numHashedges_d);
+}
+
+void ompl::infeasibility::GPUCoxeterTriangulation::searchEdges(const ompl::base::PlannerTerminationCondition &ptc)
+{
+    // breath first search from the starting edges, parallelized in each layer
+    int itr = 1; // number of search iterations 
+    int lastNumHashedEdges = numHashedEdges_; // total num of hashed edges in the last iteration
+    int searchStartIndex = 0; // current search start index in hash_eps
+    int lastAddedNumHashedEdges = numHashedEdges_; // number of added edges in last iteration
+
+    while (lastAddedNumHashedEdges != 0 and !ptc) {
+        printf("----------------------Graph search iteration %d --------------------\n", itr);
+
+        // get cofaces
+        EdgeCoface* cofs_d;
+        cudaMalloc(&cofs_d, sizeof(EdgeCoface) * lastAddedNumHashedEdges * order_set_size_cpu[NN-1]); // in 5 dof at most 30 cofaces for each edge.
+        int* numCofs_d;
+        cudaMalloc(&numCofs_d, sizeof(KeyType));
+        cudaMemset(numCofs_d, 0, sizeof(KeyType));
+        launchGetCoface(lastAddedNumHashedEdges, searchStartIndex, hashedEdges_, numCofs_d, cofs_d);
+
+
+        itr++;
+
+    }
+
+    
 }
 

@@ -141,6 +141,8 @@ void launchHashEdges(KeyType* hashset_d_, const EdgePoint* eps, const int numEdg
 
 void launchSaveHashEdges(KeyType* hashset_d_, KeyType* numHashedges_d, const int hashsetSize_, const EdgePoint* eps, EdgePoint* hashedEdges_);
 
+void launchGetCoface(int lastAddedNumHashedEdges, int searchStartIndex, const EdgePoint* hashedEdges_, int* numCofs, EdgeCoface* cofs);
+
 namespace ompl
 {
     namespace infeasibility
@@ -156,6 +158,8 @@ namespace ompl
     		void copyModelData2Device(const ompl::infeasibility::SVMModelData* source);
 
     		void locateEdges(const ompl::base::PlannerTerminationCondition &ptc);
+
+    		void searchEdges(const ompl::base::PlannerTerminationCondition &ptc);
 
     		int dim_;
     		
@@ -183,6 +187,8 @@ namespace ompl
     		// hashed edges
     		EdgePoint* hashedEdges_;
     		int numHashedEdges_;
+
+    		int order_set_size_cpu[6] = {-1, 2, 6, 14, 30, 62};
     	};
     }
 }

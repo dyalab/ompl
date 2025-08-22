@@ -207,6 +207,23 @@ void ompl::geometric::PRM::setMaxNearestNeighbors(unsigned int k)
         setup();
 }
 
+void ompl::geometric::PRM::setKBoundedStrategy(const int k, const double connection_range)
+{
+    if (starStrategy_)
+        throw Exception("Cannot set the maximum nearest neighbors for " + getName());
+    if (!nn_)
+    {
+        specs_.multithreaded = false;  // temporarily set to false since nn_ is used only in single thread
+        nn_.reset(tools::SelfConfig::getDefaultNearestNeighbors<Vertex>(this));
+        specs_.multithreaded = true;
+        nn_->setDistanceFunction([this](const Vertex a, const Vertex b) { return distanceFunction(a, b); });
+    }
+    connectionStrategy_ = KBoundedStrategy<Vertex>(k, connection_range, nn_);
+    userSetConnectionStrategy_ = true;
+    if (isSetup())
+        setup();
+}
+
 unsigned int ompl::geometric::PRM::getMaxNearestNeighbors() const
 {
     const auto strategy = connectionStrategy_.target<KStrategy<Vertex>>();

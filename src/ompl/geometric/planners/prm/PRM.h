@@ -176,6 +176,9 @@ namespace ompl
              */
             void setMaxNearestNeighbors(unsigned int k);
 
+            /** User-added */
+            void setKBoundedStrategy(const int k, const double connection_range);
+
             /** \brief return the maximum number of nearest neighbors to connect a sample to
              *
              * This only returns a meaningful answer if the connection strategy is of type KStrategy.

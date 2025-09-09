@@ -48,6 +48,14 @@
 #include <thread>
 #include <typeinfo>
 
+// Added by TQ Bill Huynh, huynh@mines.edu
+#include <fstream>
+#include <mutex>
+#include <atomic>
+#include <sstream>
+#include <iomanip>
+// #include "ompl/base/spaces/RealVectorStateSpace.h"
+
 #include "GoalVisitor.hpp"
 
 #define foreach BOOST_FOREACH
@@ -460,8 +468,15 @@ bool ompl::geometric::PRM::addedNewSolution() const
     return addedNewSolution_;
 }
 
+static std::chrono::time_point<std::chrono::steady_clock>& getSolveStartTime() {
+    static auto t0 = std::chrono::steady_clock::now();
+    return t0;
+}
+
 ompl::base::PlannerStatus ompl::geometric::PRM::solve(const base::PlannerTerminationCondition &ptc)
 {
+    getSolveStartTime() = std::chrono::steady_clock::now(); // TQBH: reset programStart()
+
     checkValidity();
     auto *goal = dynamic_cast<base::GoalSampleableRegion *>(pdef_->getGoal().get());
 
@@ -584,6 +599,42 @@ ompl::geometric::PRM::Vertex ompl::geometric::PRM::addMilestone(base::State *sta
     stateProperty_[m] = state;
     totalConnectionAttemptsProperty_[m] = 1;
     successfulConnectionAttemptsProperty_[m] = 0;
+
+    /* Added by TQ Bill Huynh, huynh@mines.edu
+       Write milestone states to a file in the order they were added.
+       File stays open until program exits, for efficiency */
+    static std::ofstream file("/home/billhuynh/amino-research/graph-milestones-inorder.log", std::ios::app);
+    static std::mutex mutex;
+    // static unsigned counter = 0;
+    // Build the whole line off-lock (cheap, no contention)
+    std::ostringstream oss;
+    auto si = this->getSpaceInformation();
+    const unsigned config_count = si->getStateDimension();
+    // std::cerr << "addMilestone(), state:\n";
+    // si->printState(state, std::cerr);
+    std::vector<double> state_values;
+    auto ss = si->getStateSpace();
+    ss->copyToReals(state_values, state);
+    // const double* state_values = state->as<base::RealVectorStateSpace::StateType>()->values;
+    for (size_t i = 0; i < config_count; i++) {
+        if (i) {
+            oss << ',';
+        }
+        oss << state_values[i];
+    }
+    oss << ',';
+    auto now = std::chrono::steady_clock::now();
+    double t = std::chrono::duration<double>(now - getSolveStartTime()).count(); // seconds since start
+    oss << std::fixed << std::setprecision(3) << t;
+    oss << '\n';
+    const std::string line = std::move(oss).str();
+    // Single critical section doing one write
+    {
+        std::lock_guard<std::mutex> lk(mutex);
+        file << line;                 // serialized, no interleaving
+        // Optional: file.flush();     // only if you need immediate visibility
+        // if (++counter % 10 == 0) file.flush();
+    }
 
     // Initialize to its own (dis)connected component.
     disjointSets_.make_set(m);

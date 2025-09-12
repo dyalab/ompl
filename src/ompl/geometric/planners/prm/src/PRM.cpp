@@ -601,6 +601,22 @@ ompl::geometric::PRM::Vertex ompl::geometric::PRM::addMilestone(base::State *sta
     successfulConnectionAttemptsProperty_[m] = 0;
 
     /* Added by TQ Bill Huynh, huynh@mines.edu
+       Export the graph after every n milestones */
+    static unsigned milestone_count = 0; // only once across calls
+    static unsigned each_n = 10;
+    auto si = this->getSpaceInformation();
+    if (++milestone_count % each_n == 0) {
+        base::PlannerData data(si);
+        this->getPlannerData(data);
+        std::ostringstream oss;
+        oss << "graph_" << milestone_count/each_n << ".graphml";
+        std::string filename = oss.str();
+        std::ofstream file(filename);
+        data.printGraphML(file);
+        file.close();
+    }
+
+    /* Added by TQ Bill Huynh, huynh@mines.edu
        Write milestone states to a file in the order they were added.
        File stays open until program exits, for efficiency */
     static std::ofstream file("/home/billhuynh/amino-research/graph-milestones-inorder.log", std::ios::app);
@@ -608,7 +624,7 @@ ompl::geometric::PRM::Vertex ompl::geometric::PRM::addMilestone(base::State *sta
     // static unsigned counter = 0;
     // Build the whole line off-lock (cheap, no contention)
     std::ostringstream oss;
-    auto si = this->getSpaceInformation();
+    // auto si = this->getSpaceInformation();
     const unsigned config_count = si->getStateDimension();
     // std::cerr << "addMilestone(), state:\n";
     // si->printState(state, std::cerr);

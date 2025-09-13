@@ -39,6 +39,13 @@
 #include "ompl/tools/config/SelfConfig.h"
 #include "ompl/util/String.h"
 
+// Added by TQ Bill Huynh, huynh@mines.edu
+#include <fstream>
+#include <mutex>
+#include <atomic>
+#include <sstream>
+#include <iomanip>
+
 ompl::geometric::RRTConnect::RRTConnect(const base::SpaceInformationPtr &si, bool addIntermediateStates)
   : base::Planner(si, addIntermediateStates ? "RRTConnectIntermediate" : "RRTConnect")
 {
@@ -116,6 +123,22 @@ void ompl::geometric::RRTConnect::clear()
 ompl::geometric::RRTConnect::GrowState ompl::geometric::RRTConnect::growTree(TreeData &tree, TreeGrowingInfo &tgi,
                                                                              Motion *rmotion)
 {
+    // /* Added by TQ Bill Huynh, huynh@mines.edu
+    // Export the graph after every n milestones */
+    // static unsigned growtree_count = 0; // only once across calls
+    // static unsigned each_n = 30;
+    // auto si = this->getSpaceInformation();
+    // if (++growtree_count % each_n == 0) {
+    //     base::PlannerData data(si);
+    //     this->getPlannerData(data);
+    //     std::ostringstream oss;
+    //     oss << "graph_" << growtree_count/each_n << ".graphml";
+    //     std::string filename = oss.str();
+    //     std::ofstream file(filename);
+    //     data.printGraphML(file);
+    //     file.close();
+    // }
+    
     /* find closest state in the tree */
     Motion *nmotion = tree->nearest(rmotion);
 
@@ -273,6 +296,22 @@ ompl::base::PlannerStatus ompl::geometric::RRTConnect::solve(const base::Planner
 
         if (gs != TRAPPED)
         {
+            /* Added by TQ Bill Huynh, huynh@mines.edu
+            Export the graph after every n milestones */
+            static unsigned growtree_count = 0; // only once across calls
+            static unsigned each_n = 25;
+            auto si = this->getSpaceInformation();
+            if (growtree_count++ % each_n == 0) {
+                base::PlannerData data(si);
+                this->getPlannerData(data);
+                std::ostringstream oss;
+                oss << "graph_" << growtree_count/each_n + 1 << ".graphml";
+                std::string filename = oss.str();
+                std::ofstream file(filename);
+                data.printGraphML(file);
+                file.close();
+            }
+
             /* remember which motion was just added */
             Motion *addedMotion = tgi.xmotion;
 
